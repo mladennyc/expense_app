@@ -778,34 +778,24 @@ async def create_income(
     db: Session = Depends(get_db)
 ):
     """Create a new income entry (requires authentication)"""
-    try:
-        print(f"Creating income for user {current_user.id}: amount={income.amount}, date={income.date}, category={income.category}")
-        db_income = IncomeModel(
-            user_id=current_user.id,
-            amount=income.amount,
-            date=income.date,
-            category=income.category,
-            description=income.description
-        )
-        db.add(db_income)
-        db.commit()
-        db.refresh(db_income)
-        print(f"Income created successfully with ID: {db_income.id}")
-        
-        return Income(
-            id=db_income.id,
-            amount=db_income.amount,
-            date=db_income.date,
-            category=db_income.category,
-            description=db_income.description
-        )
-    except Exception as e:
-        print(f"Error creating income: {e}")
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create income: {str(e)}"
-        )
+    db_income = IncomeModel(
+        user_id=current_user.id,
+        amount=income.amount,
+        date=income.date,
+        category=income.category,
+        description=income.description
+    )
+    db.add(db_income)
+    db.commit()
+    db.refresh(db_income)
+    
+    return Income(
+        id=db_income.id,
+        amount=db_income.amount,
+        date=db_income.date,
+        category=db_income.category,
+        description=db_income.description
+    )
 
 
 @app.get("/income/recent", response_model=List[Income])

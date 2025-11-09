@@ -174,10 +174,16 @@ export async function getMonthByCategory(month) {
 export async function createExpense(data) {
   const response = await authenticatedFetch(`${BASE_URL}/expenses`, {
     method: "POST",
-    body: data,
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
   });
-  const result = await response.json();
-  return normalizeBooleans(result);
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || "Failed to create expense");
+  }
+  return normalizeBooleans(await response.json());
 }
 
 export async function getExpense(expenseId) {
