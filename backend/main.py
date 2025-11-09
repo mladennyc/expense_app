@@ -149,6 +149,34 @@ async def health_check():
     return {"status": "ok"}
 
 
+@app.get("/debug/db-stats")
+async def get_db_stats(db: Session = Depends(get_db)):
+    """Debug endpoint to check database contents (for troubleshooting)"""
+    user_count = db.query(User).count()
+    expense_count = db.query(ExpenseModel).count()
+    income_count = db.query(IncomeModel).count()
+    
+    # Get sample users (without passwords)
+    users = db.query(User).order_by(User.created_at.desc()).limit(5).all()
+    user_samples = [
+        {
+            "id": u.id,
+            "email": u.email,
+            "username": u.username,
+            "name": u.name,
+            "created_at": str(u.created_at)
+        }
+        for u in users
+    ]
+    
+    return {
+        "user_count": user_count,
+        "expense_count": expense_count,
+        "income_count": income_count,
+        "recent_users": user_samples
+    }
+
+
 # Authentication endpoints
 @app.post("/signup", response_model=Token)
 async def signup(user_data: UserSignup, db: Session = Depends(get_db)):
