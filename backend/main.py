@@ -24,9 +24,19 @@ def on_startup():
     init_db()
 
 # Add CORS middleware
+# When allow_credentials=True, you cannot use allow_origins=["*"]
+# Must specify exact origins
+allowed_origins = [
+    "https://my-kasa-app.vercel.app",
+    "http://localhost:8081",
+    "http://localhost:19006",
+    "http://127.0.0.1:8081",
+    "http://127.0.0.1:19006",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
