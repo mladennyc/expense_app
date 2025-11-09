@@ -176,8 +176,13 @@ export async function createExpense(data) {
     method: "POST",
     body: data,
   });
-  const result = await response.json();
-  return normalizeBooleans(result);
+  try {
+    const result = await response.json();
+    return normalizeBooleans(result);
+  } catch (error) {
+    console.error('createExpense: Error parsing JSON response:', error);
+    throw new Error(error && error.message ? error.message : 'Failed to create expense');
+  }
 }
 
 export async function getExpense(expenseId) {
@@ -259,8 +264,13 @@ export async function createIncome(data) {
     method: "POST",
     body: data,
   });
-  const result = await response.json();
-  return normalizeBooleans(result);
+  try {
+    const result = await response.json();
+    return normalizeBooleans(result);
+  } catch (error) {
+    console.error('createIncome: Error parsing JSON response:', error);
+    throw new Error(error && error.message ? error.message : 'Failed to create income');
+  }
 }
 
 export async function getIncome(incomeId) {
