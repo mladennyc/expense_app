@@ -126,36 +126,18 @@ export default function AddExpenseScreen({ navigation }) {
         setMessage({ type: null, text: '' });
       }, 3000);
     } catch (error) {
-      console.error('Error creating expense:', error);
-      console.error('Error details:', {
-        message: error?.message,
-        stack: error?.stack,
-        error: error
-      });
       let errorMessage = t('message.failedToCreate');
-      
-      // Handle different error types
-      if (error && typeof error === 'object') {
-        if (error.message) {
-          if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-            errorMessage = `Cannot connect to backend at ${BASE_URL}. Make sure the backend is running.`;
-          } else {
-            errorMessage = String(error.message);
-          }
-        } else if (error.detail) {
-          errorMessage = String(error.detail);
+      if (error && error.message && typeof error.message === 'string') {
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+          errorMessage = `Cannot connect to backend at ${BASE_URL}. Make sure the backend is running.`;
         } else {
-          // If error is an object without message, try to stringify it safely
-          try {
-            errorMessage = JSON.stringify(error);
-          } catch (e) {
-            errorMessage = String(error) || t('message.failedToCreate');
-          }
+          errorMessage = error.message;
         }
+      } else if (error && typeof error === 'string') {
+        errorMessage = error;
       } else if (error) {
         errorMessage = String(error);
       }
-      
       setMessage({ type: 'error', text: errorMessage });
     } finally {
       setLoading(false);

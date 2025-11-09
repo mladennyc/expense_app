@@ -101,10 +101,16 @@ export default function AddIncomeScreen({ navigation }) {
       }, 1500);
     } catch (error) {
       let errorMessage = t('message.failedToCreateIncome');
-      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-        errorMessage = `Cannot connect to backend at ${BASE_URL}. Make sure the backend is running.`;
-      } else if (error.message) {
-        errorMessage = error.message;
+      if (error && error.message && typeof error.message === 'string') {
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+          errorMessage = `Cannot connect to backend at ${BASE_URL}. Make sure the backend is running.`;
+        } else {
+          errorMessage = error.message;
+        }
+      } else if (error && typeof error === 'string') {
+        errorMessage = error;
+      } else if (error) {
+        errorMessage = String(error);
       }
       setMessage({ type: 'error', text: errorMessage });
     } finally {
