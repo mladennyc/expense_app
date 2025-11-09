@@ -92,8 +92,20 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Login failed' }));
-        throw new Error(errorData.detail || 'Login failed');
+        let errorMessage = 'Login failed';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.detail || errorData.message || 'Login failed';
+        } catch (e) {
+          // If response is not JSON, use status text
+          errorMessage = response.statusText || 'Login failed';
+          if (response.status === 401) {
+            errorMessage = 'Incorrect email/username or password';
+          } else if (response.status === 502 || response.status === 503) {
+            errorMessage = 'Backend is starting up. Please wait a moment and try again.';
+          }
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
@@ -139,8 +151,22 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Signup failed' }));
-        throw new Error(errorData.detail || 'Signup failed');
+        let errorMessage = 'Signup failed';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.detail || errorData.message || 'Signup failed';
+        } catch (e) {
+          // If response is not JSON, use status text
+          errorMessage = response.statusText || 'Signup failed';
+          if (response.status === 400) {
+            errorMessage = 'Invalid signup data. Please check your information.';
+          } else if (response.status === 409) {
+            errorMessage = 'Email already registered';
+          } else if (response.status === 502 || response.status === 503) {
+            errorMessage = 'Backend is starting up. Please wait a moment and try again.';
+          }
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
