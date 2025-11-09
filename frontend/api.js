@@ -78,7 +78,7 @@ async function authenticatedFetch(url, options = {}) {
     console.log('authenticatedFetch: Body is NOT an object, skipping stringify. Type:', typeof options.body);
   }
 
-  const { body, headers: optionsHeaders, ...restOptions } = options;
+  const { body: _ignoredBody, headers: optionsHeaders, ...restOptions } = options;
   // Merge headers: restOptions headers first, then our headers (our headers win)
   const mergedHeaders = {
     ...(optionsHeaders || {}),
@@ -86,11 +86,18 @@ async function authenticatedFetch(url, options = {}) {
   };
   console.log('authenticatedFetch: Final headers:', mergedHeaders);
   console.log('authenticatedFetch: Final body type:', typeof requestBody, 'value:', requestBody);
-  const response = await fetch(url, {
+  // Explicitly construct fetch options to ensure body and headers are correct
+  const fetchOptions = {
+    method: options.method || 'GET',
     ...restOptions,
     headers: mergedHeaders,
     body: requestBody,
-  });
+  };
+  // Remove body if it's null/undefined for GET requests
+  if (!requestBody && (fetchOptions.method === 'GET' || fetchOptions.method === 'HEAD')) {
+    delete fetchOptions.body;
+  }
+  const response = await fetch(url, fetchOptions);
 
   if (!response.ok) {
     console.error('authenticatedFetch: Request failed with status:', response.status);
