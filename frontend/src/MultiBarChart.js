@@ -64,20 +64,43 @@ export default function MultiBarChart({ months, formatValue, onBarPress, maxHeig
             >
               {({ pressed }) => {
                 const isPressed = Boolean(pressed);
+                // Calculate bar position for value label placement
+                const barTop = isNegative ? zeroLineY : (hasNegative && hasPositive ? (barAreaHeight - zeroLineY - height) : (barAreaHeight - height));
+                const barBottom = barTop + height;
+                
                 return (
                   <>
-                    {/* Value label - above for positive, below for negative */}
-                    <View style={styles.valueLabelContainer}>
-                      <Text style={[styles.valueLabel, isNegative && styles.negativeValueLabel]} numberOfLines={1}>
-                        {formatValue(total)}
-                      </Text>
-                    </View>
-                    
                     {/* Bar area container */}
                     <View style={[styles.barArea, { height: barAreaHeight }]}>
                       {/* Zero line indicator */}
                       {hasNegative && hasPositive && (
                         <View style={[styles.zeroLine, { top: zeroLineY }]} />
+                      )}
+                      
+                      {/* Value label - positioned relative to bar */}
+                      {isNegative ? (
+                        // Negative: label below the bar
+                        <Text 
+                          style={[
+                            styles.valueLabel, 
+                            styles.negativeValueLabel,
+                            { position: 'absolute', top: barBottom + 4 }
+                          ]} 
+                          numberOfLines={1}
+                        >
+                          {formatValue(total)}
+                        </Text>
+                      ) : (
+                        // Positive: label above the bar
+                        <Text 
+                          style={[
+                            styles.valueLabel,
+                            { position: 'absolute', bottom: barAreaHeight - barTop + 4 }
+                          ]} 
+                          numberOfLines={1}
+                        >
+                          {formatValue(total)}
+                        </Text>
                       )}
                       
                       {isNegative ? (
@@ -155,17 +178,12 @@ const styles = StyleSheet.create({
     ...(Platform.OS === 'web' && { cursor: 'pointer' }),
     minWidth: 50,
   },
-  valueLabelContainer: {
-    height: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
   valueLabel: {
     fontSize: 11,
     fontWeight: '600',
     color: colors.textPrimary,
     textAlign: 'center',
+    width: '100%',
   },
   negativeValueLabel: {
     color: '#EF4444', // Red for negative values
