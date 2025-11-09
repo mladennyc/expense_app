@@ -98,17 +98,19 @@ async function authenticatedFetch(url, options = {}) {
     }
     try {
       const errorData = await response.json();
-      console.error('authenticatedFetch: Error response data:', errorData);
+      console.error('authenticatedFetch: Error response data:', JSON.stringify(errorData, null, 2));
       if (errorData.detail) {
         // Handle both string and array of validation errors
         if (Array.isArray(errorData.detail)) {
           errorMessage = errorData.detail.map(err => `${err.loc?.join('.')}: ${err.msg}`).join(', ');
+          console.error('authenticatedFetch: Validation errors:', errorMessage);
         } else {
           errorMessage = errorData.detail;
         }
       }
     } catch (e) {
       // Ignore JSON parse errors
+      console.error('authenticatedFetch: Failed to parse error response:', e);
     }
     throw new Error(errorMessage);
   }
