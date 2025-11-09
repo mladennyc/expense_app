@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "expense-app",
-    "slug": "expense-app",
+    "name": "KASA",
+    "slug": "kasa",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -9,19 +9,19 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#10B981"
     },
     "android": {
-      "package": "com.expenseapp.mobile",
+      "package": "com.kasa.app",
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#10B981"
       },
       "permissions": []
     },
     "web": {
-      "bundler": "metro",
+      "bundler": "webpack",
       "favicon": "./assets/favicon.png"
     },
     "packagerOpts": {
