@@ -69,14 +69,26 @@ async function authenticatedFetch(url, options = {}) {
 
   // For JSON requests - always stringify objects and set Content-Type
   let requestBody = options.body;
+  console.log('authenticatedFetch: options.body type:', typeof options.body, 'value:', options.body);
   if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
     requestBody = JSON.stringify(options.body);
+    console.log('authenticatedFetch: Stringified body:', requestBody);
+  } else {
+    console.log('authenticatedFetch: Body is NOT an object, skipping stringify. Type:', typeof options.body);
   }
 
+  const { body, headers: optionsHeaders, ...restOptions } = options;
+  // Merge headers: restOptions headers first, then our headers (our headers win)
+  const mergedHeaders = {
+    ...(optionsHeaders || {}),
+    ...headers,
+  };
+  console.log('authenticatedFetch: Final headers:', mergedHeaders);
+  console.log('authenticatedFetch: Final body type:', typeof requestBody, 'value:', requestBody);
   const response = await fetch(url, {
-    ...options,
-    headers,
+    ...restOptions,
+    headers: mergedHeaders,
     body: requestBody,
   });
 
