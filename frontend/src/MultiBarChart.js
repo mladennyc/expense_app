@@ -82,7 +82,7 @@ export default function MultiBarChart({ months, formatValue, onBarPress, maxHeig
                     hasNegative && hasPositive && styles.barWrapperWithZero
                   ]}>
                     {isNegative ? (
-                      // Negative bar: bottom at zero line, extends downward
+                      // Negative bar: top at zero line, extends downward
                       <View
                         style={[
                           styles.bar,
@@ -90,7 +90,7 @@ export default function MultiBarChart({ months, formatValue, onBarPress, maxHeig
                           { 
                             height,
                             position: 'absolute',
-                            bottom: barBottom,
+                            top: barBottom, // Top of bar at zero line
                             // Extends downward from zero line
                           },
                           isPressed === true ? styles.barPressed : null,
@@ -105,7 +105,7 @@ export default function MultiBarChart({ months, formatValue, onBarPress, maxHeig
                           { 
                             height,
                             position: 'absolute',
-                            bottom: barBottom,
+                            bottom: barBottom, // Bottom of bar at zero line
                             // Extends upward from zero line
                           },
                           isPressed === true ? styles.barPressed : null,
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
   chartContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    alignItems: 'flex-start',
+    alignItems: 'flex-start', // Align to top for predictable positioning
     height: 250,
     paddingHorizontal: 10,
     paddingTop: 40,
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
   barContainer: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-start', // Align to top so positioning is predictable
     marginHorizontal: 4,
     ...(Platform.OS === 'web' && { cursor: 'pointer' }),
     minWidth: 50,
