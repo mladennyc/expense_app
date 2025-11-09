@@ -174,16 +174,10 @@ export async function getMonthByCategory(month) {
 export async function createExpense(data) {
   const response = await authenticatedFetch(`${BASE_URL}/expenses`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
+    body: data,
   });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || "Failed to create expense");
-  }
-  return normalizeBooleans(await response.json());
+  const result = await response.json();
+  return normalizeBooleans(result);
 }
 
 export async function getExpense(expenseId) {
@@ -263,16 +257,10 @@ export async function getIncomeByMonth() {
 export async function createIncome(data) {
   const response = await authenticatedFetch(`${BASE_URL}/income`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
+    body: data,
   });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || "Failed to create income");
-  }
-  return normalizeBooleans(await response.json());
+  const result = await response.json();
+  return normalizeBooleans(result);
 }
 
 export async function getIncome(incomeId) {

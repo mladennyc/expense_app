@@ -78,35 +78,35 @@ export default function MultiBarChart({ months, formatValue, onBarPress, maxHeig
                     hasNegative && hasPositive && styles.barWrapperWithZero
                   ]}>
                     {isNegative ? (
-                      // Negative bar: extends downward from center
-                      <View style={[
-                        styles.negativeBarContainer,
-                        hasNegative && hasPositive && { flex: 1 }
-                      ]}>
-                        <View
-                          style={[
-                            styles.bar,
-                            styles.negativeBar,
-                            { height },
-                            isPressed === true ? styles.barPressed : null,
-                          ].filter(Boolean)}
-                        />
-                      </View>
+                      // Negative bar: extends downward from center (50%)
+                      <View
+                        style={[
+                          styles.bar,
+                          styles.negativeBar,
+                          { 
+                            height,
+                            position: 'absolute',
+                            top: hasNegative && hasPositive ? '50%' : undefined,
+                            bottom: hasNegative && hasPositive ? undefined : 0,
+                          },
+                          isPressed === true ? styles.barPressed : null,
+                        ].filter(Boolean)}
+                      />
                     ) : (
-                      // Positive bar: extends upward from center
-                      <View style={[
-                        styles.positiveBarContainer,
-                        hasNegative && hasPositive && { flex: 1 }
-                      ]}>
-                        <View
-                          style={[
-                            styles.bar,
-                            isCurrent === true ? styles.currentBar : styles.previousBar,
-                            { height },
-                            isPressed === true ? styles.barPressed : null,
-                          ].filter(Boolean)}
-                        />
-                      </View>
+                      // Positive bar: extends upward from center (50%)
+                      <View
+                        style={[
+                          styles.bar,
+                          isCurrent === true ? styles.currentBar : styles.previousBar,
+                          { 
+                            height,
+                            position: 'absolute',
+                            bottom: hasNegative && hasPositive ? '50%' : 0,
+                            top: hasNegative && hasPositive ? undefined : undefined,
+                          },
+                          isPressed === true ? styles.barPressed : null,
+                        ].filter(Boolean)}
+                      />
                     )}
                   </View>
                   <Text style={styles.monthLabel} numberOfLines={1}>
@@ -156,21 +156,11 @@ const styles = StyleSheet.create({
   },
   barWrapper: {
     width: '85%',
-    justifyContent: 'flex-end',
+    position: 'relative',
     alignItems: 'center',
   },
   barWrapperWithZero: {
-    justifyContent: 'center',
-  },
-  positiveBarContainer: {
-    width: '100%',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-  },
-  negativeBarContainer: {
-    width: '100%',
-    justifyContent: 'flex-start',
-    alignItems: 'center',
+    // Zero line is at 50% - bars position relative to this
   },
   barContainer: {
     flex: 1,

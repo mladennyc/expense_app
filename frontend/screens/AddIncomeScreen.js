@@ -100,15 +100,9 @@ export default function AddIncomeScreen({ navigation }) {
         navigation.navigate('Dashboard');
       }, 1500);
     } catch (error) {
-      console.error('Error creating income:', error);
-      console.error('Error details:', {
-        message: error.message,
-        stack: error.stack,
-        response: error.response
-      });
       let errorMessage = t('message.failedToCreateIncome');
       if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-        errorMessage = `Cannot connect to backend. Make sure the backend is running.`;
+        errorMessage = `Cannot connect to backend at ${BASE_URL}. Make sure the backend is running.`;
       } else if (error.message) {
         errorMessage = error.message;
       }
