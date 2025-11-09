@@ -35,94 +35,92 @@ export default function MultiBarChart({ months, formatValue, onBarPress, maxHeig
     }
   };
 
-  // Calculate zero line position in pixels (middle if we have both positive and negative)
-  // Zero line is positioned from chartContainer top, accounting for paddingTop: 40
-  const zeroLineY = hasNegative && hasPositive ? maxHeight / 2 : maxHeight;
-  const zeroLinePosition = zeroLineY + 40; // 40 is paddingTop
+  // Zero line is in the middle of the bar area when we have both positive and negative
+  const barAreaHeight = maxHeight;
+  const zeroLineY = hasNegative && hasPositive ? barAreaHeight / 2 : barAreaHeight;
 
   return (
     <View style={styles.container}>
-      {/* Zero line indicator if we have negative values */}
-      {hasNegative && hasPositive && (
-        <View style={[styles.zeroLine, { top: zeroLinePosition }]} />
-      )}
       <View style={styles.chartContainer}>
         {months.map((monthData, index) => {
           const total = monthData?.total || 0;
           const isNegative = total < 0;
           const absValue = Math.abs(total);
           
-          // Calculate height based on absolute value (use half of maxHeight for each direction)
-          const barHeight = maxValue > 0 ? (absValue / maxValue) * (maxHeight / 2) : 0;
+          // Calculate bar height (use half of barAreaHeight for each direction)
+          const barHeight = maxValue > 0 ? (absValue / maxValue) * (barAreaHeight / 2) : 0;
           const height = Math.max(barHeight, 4);
           
-          // Ensure isCurrent is a boolean - handle string "true"/"false" from API
+          // Ensure isCurrent is a boolean
           const isCurrentRaw = monthData?.isCurrent;
           const isCurrent = isCurrentRaw === true || isCurrentRaw === 'true' || isCurrentRaw === 1;
-          
-          // barWrapper starts at paddingTop (40px) from chartContainer top
-          // Zero line is at zeroLineY (100px) from barWrapper top
-          // So bars should be positioned relative to barWrapper
-          const zeroLineInBarWrapper = zeroLineY; // This is maxHeight / 2 = 100px
           
           return (
             <Pressable
               key={index}
-              style={styles.barContainer}
+              style={styles.barColumn}
               onPress={() => onBarPress && onBarPress(monthData?.month)}
               disabled={Boolean(!onBarPress)}
             >
               {({ pressed }) => {
                 const isPressed = Boolean(pressed);
                 return (
-                <>
-                  <Text style={[styles.valueLabel, isNegative && styles.negativeValueLabel]} numberOfLines={1}>
-                    {formatValue(monthData?.total || 0)}
-                  </Text>
-                  <View style={[
-                    styles.barWrapper, 
-                    { height: maxHeight },
-                    hasNegative && hasPositive && styles.barWrapperWithZero
-                  ]}>
-                    {isNegative ? (
-                      // Negative bar: top edge at zero line, extends downward
-                      <View
-                        style={[
-                          styles.bar,
-                          styles.negativeBar,
-                          { 
-                            height,
-                            position: 'absolute',
-                            top: zeroLineInBarWrapper, // Top of bar at zero line (middle of barWrapper)
-                            // Bar extends downward from zero line
-                          },
-                          isPressed === true ? styles.barPressed : null,
-                        ].filter(Boolean)}
-                      />
-                    ) : (
-                      // Positive bar: bottom edge at zero line, extends upward
-                      <View
-                        style={[
-                          styles.bar,
-                          isCurrent === true ? styles.currentBar : styles.previousBar,
-                          { 
-                            height,
-                            position: 'absolute',
-                            bottom: hasNegative && hasPositive ? (maxHeight - zeroLineInBarWrapper) : 0, // Bottom at zero line or bottom of container
-                            // Bar extends upward from zero line
-                          },
-                          isPressed === true ? styles.barPressed : null,
-                        ].filter(Boolean)}
-                      />
-                    )}
-                  </View>
-                  <Text style={styles.monthLabel} numberOfLines={1}>
-                    {formatMonthLabel(monthData?.month || '')}
-                  </Text>
-                  {onBarPress && (
-                    <Text style={styles.clickHint}>👆</Text>
-                  )}
-                </>
+                  <>
+                    {/* Value label - above for positive, below for negative */}
+                    <View style={styles.valueLabelContainer}>
+                      <Text style={[styles.valueLabel, isNegative && styles.negativeValueLabel]} numberOfLines={1}>
+                        {formatValue(total)}
+                      </Text>
+                    </View>
+                    
+                    {/* Bar area container */}
+                    <View style={[styles.barArea, { height: barAreaHeight }]}>
+                      {/* Zero line indicator */}
+                      {hasNegative && hasPositive && (
+                        <View style={[styles.zeroLine, { top: zeroLineY }]} />
+                      )}
+                      
+                      {isNegative ? (
+                        // Negative bar: top at zero line, extends downward
+                        <View
+                          style={[
+                            styles.bar,
+                            styles.negativeBar,
+                            { 
+                              height,
+                              position: 'absolute',
+                              top: zeroLineY,
+                            },
+                            isPressed && styles.barPressed,
+                          ]}
+                        />
+                      ) : (
+                        // Positive bar: bottom at zero line, extends upward
+                        <View
+                          style={[
+                            styles.bar,
+                            isCurrent ? styles.currentBar : styles.previousBar,
+                            { 
+                              height,
+                              position: 'absolute',
+                              bottom: hasNegative && hasPositive ? (barAreaHeight - zeroLineY) : 0,
+                            },
+                            isPressed && styles.barPressed,
+                          ]}
+                        />
+                      )}
+                    </View>
+                    
+                    {/* Month label */}
+                    <View style={styles.monthLabelContainer}>
+                      <Text style={styles.monthLabel} numberOfLines={1}>
+                        {formatMonthLabel(monthData?.month || '')}
+                      </Text>
+                      {onBarPress && (
+                        <Text style={styles.clickHint}>👆</Text>
+                      )}
+                    </View>
+                  </>
                 );
               }}
             </Pressable>
@@ -146,11 +144,37 @@ const styles = StyleSheet.create({
   chartContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    alignItems: 'flex-start', // Align to top for predictable positioning
-    height: 250,
+    alignItems: 'flex-start',
     paddingHorizontal: 10,
-    paddingTop: 40,
+    paddingVertical: 10,
+  },
+  barColumn: {
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: 4,
+    ...(Platform.OS === 'web' && { cursor: 'pointer' }),
+    minWidth: 50,
+  },
+  valueLabelContainer: {
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  valueLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  negativeValueLabel: {
+    color: '#EF4444', // Red for negative values
+  },
+  barArea: {
+    width: '85%',
     position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   zeroLine: {
     position: 'absolute',
@@ -160,41 +184,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.textSecondary,
     opacity: 0.3,
     zIndex: 1,
-  },
-  barWrapper: {
-    width: '85%',
-    position: 'relative',
-    alignItems: 'center',
-  },
-  barWrapperWithZero: {
-    // Zero line is at 50% - bars position relative to this
-  },
-  barContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'flex-start', // Align to top so positioning is predictable
-    marginHorizontal: 4,
-    ...(Platform.OS === 'web' && { cursor: 'pointer' }),
-    minWidth: 50,
-  },
-  barPressed: {
-    opacity: 0.7,
-    transform: [{ scale: 0.95 }],
-  },
-  clickHint: {
-    fontSize: 8,
-    color: colors.textTertiary,
-    marginTop: 2,
-  },
-  valueLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  negativeValueLabel: {
-    color: '#EF4444', // Red for negative values
   },
   bar: {
     width: '100%',
@@ -210,11 +199,24 @@ const styles = StyleSheet.create({
   currentBar: {
     backgroundColor: colors.chartCurrent,
   },
+  barPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.95 }],
+  },
+  monthLabelContainer: {
+    height: 40,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    marginTop: 4,
+  },
   monthLabel: {
     fontSize: 10,
     color: colors.textSecondary,
-    marginTop: 6,
     textAlign: 'center',
   },
+  clickHint: {
+    fontSize: 8,
+    color: colors.textTertiary,
+    marginTop: 2,
+  },
 });
-
