@@ -22,7 +22,7 @@
       "permissions": []
     },
     "web": {
-      "bundler": "webpack",
+      "bundler": "metro",
       "favicon": "./assets/favicon.png"
     },
     "packagerOpts": {
