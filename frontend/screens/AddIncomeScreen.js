@@ -87,6 +87,7 @@ export default function AddIncomeScreen({ navigation }) {
 
       setMessage({ type: 'success', text: t('message.incomeAdded') });
       
+      // Reset form
       setAmount('');
       const newToday = new Date();
       newToday.setHours(0, 0, 0, 0);
@@ -94,10 +95,17 @@ export default function AddIncomeScreen({ navigation }) {
       setCategory('');
       setDescription('');
       
+      // Navigate back to dashboard after a short delay to show success message
       setTimeout(() => {
-        setMessage({ type: null, text: '' });
-      }, 3000);
+        navigation.navigate('Dashboard');
+      }, 1500);
     } catch (error) {
+      console.error('Error creating income:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        response: error.response
+      });
       let errorMessage = t('message.failedToCreateIncome');
       if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
         errorMessage = `Cannot connect to backend. Make sure the backend is running.`;

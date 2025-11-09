@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Pressable, Platform, Alert } from 'react-native';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import { 
   getCurrentMonthStats, getRecentExpenses, getMonthlyStats,
   getCurrentMonthIncomeStats, getRecentIncome, getIncomeByMonth,
@@ -72,12 +72,15 @@ export default function DashboardScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    // Only load data if authenticated and not loading auth
-    if (isFocused && isAuthenticated && !authLoading) {
-      loadData();
-    }
-  }, [isFocused, isAuthenticated, authLoading]);
+  // Use useFocusEffect to ensure data refreshes when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      // Only load data if authenticated and not loading auth
+      if (isAuthenticated && !authLoading) {
+        loadData();
+      }
+    }, [isAuthenticated, authLoading])
+  );
 
   const loadData = async () => {
     try {
