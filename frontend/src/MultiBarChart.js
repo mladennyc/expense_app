@@ -58,10 +58,9 @@ export default function MultiBarChart({ months, formatValue, onBarPress, maxHeig
           const isCurrentRaw = monthData?.isCurrent;
           const isCurrent = isCurrentRaw === true || isCurrentRaw === 'true' || isCurrentRaw === 1;
           
-          // Calculate position for negative bars (from zero line downward)
-          const negativeBarTop = hasNegative && hasPositive ? zeroLineY : undefined;
-          // Calculate position for positive bars (from zero line upward)
-          const positiveBarBottom = hasNegative && hasPositive ? zeroLineY : 0;
+          // For negative bars: position bottom at zero line, extend downward
+          // For positive bars: position bottom at zero line (or 0), extend upward
+          const barBottom = hasNegative && hasPositive ? zeroLineY : 0;
           
           return (
             <Pressable
@@ -83,7 +82,7 @@ export default function MultiBarChart({ months, formatValue, onBarPress, maxHeig
                     hasNegative && hasPositive && styles.barWrapperWithZero
                   ]}>
                     {isNegative ? (
-                      // Negative bar: extends downward from zero line
+                      // Negative bar: bottom at zero line, extends downward
                       <View
                         style={[
                           styles.bar,
@@ -91,14 +90,14 @@ export default function MultiBarChart({ months, formatValue, onBarPress, maxHeig
                           { 
                             height,
                             position: 'absolute',
-                            top: negativeBarTop,
-                            bottom: negativeBarTop === undefined ? 0 : undefined,
+                            bottom: barBottom,
+                            // Extends downward from zero line
                           },
                           isPressed === true ? styles.barPressed : null,
                         ].filter(Boolean)}
                       />
                     ) : (
-                      // Positive bar: extends upward from zero line
+                      // Positive bar: bottom at zero line (or 0), extends upward
                       <View
                         style={[
                           styles.bar,
@@ -106,8 +105,8 @@ export default function MultiBarChart({ months, formatValue, onBarPress, maxHeig
                           { 
                             height,
                             position: 'absolute',
-                            bottom: positiveBarBottom,
-                            top: positiveBarBottom === 0 ? undefined : undefined,
+                            bottom: barBottom,
+                            // Extends upward from zero line
                           },
                           isPressed === true ? styles.barPressed : null,
                         ].filter(Boolean)}
