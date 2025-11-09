@@ -2,8 +2,9 @@
   "name": "frontend",
   "version": "1.0.0",
   "description": "",
-  "main": "api.js",
+  "main": "index.js",
   "scripts": {
+    "start": "npx cross-env EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0 EXPO_PUBLIC_WEB_HOST=192.168.1.76 REACT_NATIVE_PACKAGER_HOSTNAME=192.168.1.76 EXPO_PACKAGER_HOSTNAME=192.168.1.76 RCT_METRO_PORT=8081 expo start --lan",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -11,8 +12,18 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^2.1.0",
+    "@react-native-community/datetimepicker": "^8.2.0",
     "@react-navigation/native": "^7.1.19",
     "@react-navigation/native-stack": "^7.6.2",
-    "expo": "^54.0.22"
+    "cross-env": "^7.0.3",
+    "expo": "54.0.23",
+    "expo-updates": "^29.0.12",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-screens": "~4.4.0",
+    "react-native-safe-area-context": "~4.14.0",
+    "react-native-web": "0.21.0"
   }
 }

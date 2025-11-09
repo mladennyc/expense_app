@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Platform, Alert, Modal } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { createExpense } from '../api';
+import { getExpense, updateExpense, deleteExpense } from '../api';
 import { useLanguage } from '../src/LanguageProvider';
-import { colors } from '../src/colors';
 
 const CATEGORY_KEYS = [
   'category.groceries',
@@ -46,25 +45,54 @@ const CATEGORY_KEY_TO_NAME = {
   'category.other': 'Other'
 };
 
-export default function AddExpenseScreen({ navigation }) {
+// Map English category names to translation keys
+const CATEGORY_NAME_TO_KEY = {
+  'Groceries': 'category.groceries',
+  'Utilities': 'category.utilities',
+  'Transportation': 'category.transportation',
+  'Housing': 'category.housing',
+  'Healthcare': 'category.healthcare',
+  'Education': 'category.education',
+  'Entertainment': 'category.entertainment',
+  'Dining Out': 'category.diningOut',
+  'Clothing': 'category.clothing',
+  'Personal Care': 'category.personalCare',
+  'Gifts & Donations': 'category.giftsDonations',
+  'Travel': 'category.travel',
+  'Loans & Debt Payments': 'category.loansDebt',
+  'Bank Fees & Overdrafts': 'category.bankFees',
+  'Insurance': 'category.insurance',
+  'Taxes': 'category.taxes',
+  'Other': 'category.other'
+};
+
+export default function EditExpenseScreen({ route, navigation }) {
   const { t } = useLanguage();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const { expenseId, expense: initialExpense } = route.params || {};
   
   const [amount, setAmount] = useState('');
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [category, setCategory] = useState('');
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(false);
   const [message, setMessage] = useState({ type: null, text: '' });
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const formatDate = (dateObj) => {
     const year = dateObj.getFullYear();
     const month = String(dateObj.getMonth() + 1).padStart(2, '0');
     const day = String(dateObj.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  };
+
+  const parseDate = (dateString) => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    date.setHours(0, 0, 0, 0);
+    return date;
   };
 
   const handleDateChange = (event, selectedDate) => {
@@ -76,6 +104,48 @@ export default function AddExpenseScreen({ navigation }) {
       const normalizedDate = new Date(selectedDate);
       normalizedDate.setHours(0, 0, 0, 0);
       setDate(normalizedDate);
+    }
+  };
+
+  useEffect(() => {
+    if (expenseId) {
+      if (initialExpense) {
+        // Prepopulate from provided expense data
+        setAmount(String(initialExpense.amount || ''));
+        if (initialExpense.date) {
+          setDate(parseDate(initialExpense.date));
+        }
+        // Convert English category name to translation key
+        const categoryKey = CATEGORY_NAME_TO_KEY[initialExpense.category] || '';
+        setCategory(categoryKey);
+        setDescription(initialExpense.description || '');
+      } else {
+        // Fetch expense data
+        fetchExpense();
+      }
+    }
+  }, [expenseId]);
+
+  const fetchExpense = async () => {
+    if (!expenseId) return;
+
+    try {
+      setFetching(true);
+      const expenseData = await getExpense(expenseId);
+      
+      // Prepopulate form fields
+      setAmount(String(expenseData.amount || ''));
+      if (expenseData.date) {
+        setDate(parseDate(expenseData.date));
+      }
+      // Convert English category name to translation key
+      const categoryKey = CATEGORY_NAME_TO_KEY[expenseData.category] || '';
+      setCategory(categoryKey);
+      setDescription(expenseData.description || '');
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message || t('message.failedToLoad') });
+    } finally {
+      setFetching(false);
     }
   };
 
@@ -104,31 +174,24 @@ export default function AddExpenseScreen({ navigation }) {
       setMessage({ type: null, text: '' });
 
       const dateString = formatDate(date);
-      await createExpense({
+      await updateExpense(expenseId, {
         amount: amountNum,
         date: dateString,
         category: category ? CATEGORY_KEY_TO_NAME[category] : null,
         description: description || null,
       });
 
-      setMessage({ type: 'success', text: t('message.expenseAdded') });
+      // Show success message
+      setMessage({ type: 'success', text: t('message.expenseUpdated') });
       
-      // Reset form
-      setAmount('');
-      const newToday = new Date();
-      newToday.setHours(0, 0, 0, 0);
-      setDate(newToday);
-      setCategory('');
-      setDescription('');
-      
-      // Clear message after 3 seconds
+      // Navigate back after 1.5 seconds
       setTimeout(() => {
-        setMessage({ type: null, text: '' });
-      }, 3000);
+        navigation.goBack();
+      }, 1500);
     } catch (error) {
-      let errorMessage = t('message.failedToCreate');
+      let errorMessage = t('message.failedToUpdate');
       if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-        errorMessage = `Cannot connect to backend at ${BASE_URL}. Make sure the backend is running.`;
+        errorMessage = `Cannot connect to backend. Make sure the backend is running.`;
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -138,14 +201,89 @@ export default function AddExpenseScreen({ navigation }) {
     }
   };
 
+  const handleDelete = () => {
+    setShowDeleteModal(true);
+  };
+
+  const deleteExpenseHandler = async () => {
+    setShowDeleteModal(false);
+    try {
+      setLoading(true);
+      setMessage({ type: 'info', text: t('message.deletingExpense') });
+      await deleteExpense(expenseId);
+      setMessage({ type: 'success', text: t('message.expenseDeleted') });
+      setTimeout(() => {
+        navigation.goBack();
+      }, 2000);
+    } catch (error) {
+      let errorMessage = t('message.failedToDelete');
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        errorMessage = `Cannot connect to backend. Make sure the backend is running.`;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      setMessage({ type: 'error', text: errorMessage });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (fetching) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" />
+        <Text style={styles.loadingText}>{t('message.loadingExpense')}</Text>
+      </View>
+    );
+  }
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      <View style={styles.content}>
-        <Text style={styles.title}>{t('screen.addExpense')}</Text>
+    <>
+      <Modal
+        visible={showDeleteModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{t('button.deleteExpense')}</Text>
+            <Text style={styles.modalMessage}>{t('message.confirmDelete')}</Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalCancelButton]}
+                onPress={() => setShowDeleteModal(false)}
+              >
+                <Text style={styles.modalCancelButtonText}>{t('button.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalDeleteButton]}
+                onPress={deleteExpenseHandler}
+                disabled={loading}
+              >
+                <Text style={styles.modalDeleteButtonText}>{t('button.delete')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.content}>
+          <Text style={styles.title}>{t('screen.editExpense')}</Text>
 
         {message.text ? (
-          <View style={[styles.messageContainer, message.type === 'success' ? styles.successMessage : styles.errorMessage]}>
-            <Text style={[styles.messageText, message.type === 'success' ? styles.successMessageText : styles.errorMessageText]}>
+          <View style={[
+            styles.messageContainer, 
+            message.type === 'success' ? styles.successMessage : 
+            message.type === 'error' ? styles.errorMessage :
+            message.type === 'info' ? styles.infoMessage : styles.messageContainer
+          ]}>
+            <Text style={[
+              styles.messageText, 
+              message.type === 'success' ? styles.successMessageText : 
+              message.type === 'error' ? styles.errorMessageText :
+              message.type === 'info' ? styles.infoMessageText : styles.messageText
+            ]}>
               {message.text}
             </Text>
           </View>
@@ -276,20 +414,21 @@ export default function AddExpenseScreen({ navigation }) {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.submitButtonText}>{t('button.submit')}</Text>
+              <Text style={styles.submitButtonText}>{t('button.saveChanges')}</Text>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.secondaryButton]}
-            onPress={() => navigation.navigate('Dashboard')}
+            style={[styles.deleteButton, loading && styles.disabledButton]}
+            onPress={handleDelete}
             disabled={loading}
           >
-            <Text style={styles.secondaryButtonText}>{t('screen.dashboard')}</Text>
+            <Text style={styles.deleteButtonText}>{t('button.deleteExpense')}</Text>
           </TouchableOpacity>
         </View>
       </View>
     </ScrollView>
+    </>
   );
 }
 
@@ -320,6 +459,17 @@ const styles = StyleSheet.create({
       elevation: 3,
     }),
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
+  },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
@@ -346,6 +496,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#f5c6cb',
   },
+  infoMessage: {
+    backgroundColor: '#d1ecf1',
+    borderWidth: 1,
+    borderColor: '#bee5eb',
+  },
   messageText: {
     fontSize: 14,
   },
@@ -354,6 +509,9 @@ const styles = StyleSheet.create({
   },
   errorMessageText: {
     color: '#721c24',
+  },
+  infoMessageText: {
+    color: '#0c5460',
   },
   inputContainer: {
     marginBottom: 20,
@@ -472,10 +630,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   buttonContainer: {
+    flexDirection: 'row',
+    gap: 12,
     marginTop: 24,
     ...(Platform.OS === 'web' && {
-      flexDirection: 'row',
-      gap: 12,
       justifyContent: 'flex-end',
       marginTop: 32,
     }),
@@ -485,13 +643,11 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 12,
+    flex: 1,
     ...(Platform.OS === 'web' && {
       minWidth: 140,
       padding: 14,
-      marginTop: 0,
-      marginBottom: 0,
+      flex: 0,
       cursor: 'pointer',
       transition: 'background-color 0.2s, transform 0.1s',
       ':hover': {
@@ -502,22 +658,20 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  secondaryButton: {
-    backgroundColor: colors.secondary,
+  deleteButton: {
+    backgroundColor: '#EF4444',
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 12,
+    flex: 1,
     ...(Platform.OS === 'web' && {
       minWidth: 140,
       padding: 14,
-      marginTop: 0,
-      marginBottom: 0,
+      flex: 0,
       cursor: 'pointer',
       transition: 'background-color 0.2s, transform 0.1s',
       ':hover': {
-        backgroundColor: colors.secondaryDark,
+        backgroundColor: '#DC2626',
       },
       ':active': {
         transform: 'scale(0.98)',
@@ -529,7 +683,7 @@ const styles = StyleSheet.create({
     ...(Platform.OS === 'web' && {
       cursor: 'not-allowed',
       ':hover': {
-        backgroundColor: '#10B981',
+        backgroundColor: Platform.OS === 'web' ? '#10B981' : undefined,
       },
     }),
   },
@@ -541,7 +695,7 @@ const styles = StyleSheet.create({
       fontSize: 16,
     }),
   },
-  secondaryButtonText: {
+  deleteButtonText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
@@ -549,4 +703,65 @@ const styles = StyleSheet.create({
       fontSize: 16,
     }),
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 24,
+    width: '90%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1E293B',
+    marginBottom: 12,
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#64748B',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  modalCancelButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  modalDeleteButton: {
+    backgroundColor: '#EF4444',
+  },
+  modalCancelButtonText: {
+    color: '#64748B',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalDeleteButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
 });
+
