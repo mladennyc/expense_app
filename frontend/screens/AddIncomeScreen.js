@@ -81,7 +81,7 @@ export default function AddIncomeScreen({ navigation }) {
       await createIncome({
         amount: amountNum,
         date: dateString,
-        category: category ? INCOME_CATEGORY_KEY_TO_NAME[category] : null,
+        category: category && INCOME_CATEGORY_KEY_TO_NAME[category] ? INCOME_CATEGORY_KEY_TO_NAME[category] : null,
         description: description || null,
       });
 

@@ -100,7 +100,12 @@ async function authenticatedFetch(url, options = {}) {
       const errorData = await response.json();
       console.error('authenticatedFetch: Error response data:', errorData);
       if (errorData.detail) {
-        errorMessage = errorData.detail;
+        // Handle both string and array of validation errors
+        if (Array.isArray(errorData.detail)) {
+          errorMessage = errorData.detail.map(err => `${err.loc?.join('.')}: ${err.msg}`).join(', ');
+        } else {
+          errorMessage = errorData.detail;
+        }
       }
     } catch (e) {
       // Ignore JSON parse errors
@@ -172,6 +177,7 @@ export async function getMonthByCategory(month) {
 }
 
 export async function createExpense(data) {
+  console.log('createExpense: Sending data:', JSON.stringify(data));
   const response = await authenticatedFetch(`${BASE_URL}/expenses`, {
     method: "POST",
     body: data,
@@ -260,6 +266,7 @@ export async function getIncomeByMonth() {
 }
 
 export async function createIncome(data) {
+  console.log('createIncome: Sending data:', JSON.stringify(data));
   const response = await authenticatedFetch(`${BASE_URL}/income`, {
     method: "POST",
     body: data,

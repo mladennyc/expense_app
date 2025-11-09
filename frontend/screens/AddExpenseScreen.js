@@ -107,7 +107,7 @@ export default function AddExpenseScreen({ navigation }) {
       await createExpense({
         amount: amountNum,
         date: dateString,
-        category: category ? CATEGORY_KEY_TO_NAME[category] : null,
+        category: category && CATEGORY_KEY_TO_NAME[category] ? CATEGORY_KEY_TO_NAME[category] : null,
         description: description || null,
       });
 
