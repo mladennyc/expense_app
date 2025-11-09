@@ -64,10 +64,6 @@ export default function MultiBarChart({ months, formatValue, onBarPress, maxHeig
             >
               {({ pressed }) => {
                 const isPressed = Boolean(pressed);
-                // Calculate bar position for value label placement
-                const barTop = isNegative ? zeroLineY : (hasNegative && hasPositive ? (barAreaHeight - zeroLineY - height) : (barAreaHeight - height));
-                const barBottom = barTop + height;
-                
                 return (
                   <>
                     {/* Bar area container */}
@@ -79,12 +75,12 @@ export default function MultiBarChart({ months, formatValue, onBarPress, maxHeig
                       
                       {/* Value label - positioned relative to bar */}
                       {isNegative ? (
-                        // Negative: label below the bar
+                        // Negative: label below the bar (bar ends at zeroLineY + height)
                         <Text 
                           style={[
                             styles.valueLabel, 
                             styles.negativeValueLabel,
-                            { position: 'absolute', top: barBottom + 4 }
+                            { position: 'absolute', top: zeroLineY + height + 4 }
                           ]} 
                           numberOfLines={1}
                         >
@@ -92,10 +88,18 @@ export default function MultiBarChart({ months, formatValue, onBarPress, maxHeig
                         </Text>
                       ) : (
                         // Positive: label above the bar
+                        // Bar bottom is at: hasNegative && hasPositive ? (barAreaHeight - zeroLineY) : 0
+                        // Bar top is at: hasNegative && hasPositive ? (barAreaHeight - zeroLineY - height) : (barAreaHeight - height)
+                        // Label should be above bar top
                         <Text 
                           style={[
                             styles.valueLabel,
-                            { position: 'absolute', bottom: barAreaHeight - barTop + 4 }
+                            { 
+                              position: 'absolute', 
+                              bottom: hasNegative && hasPositive 
+                                ? (barAreaHeight - zeroLineY + height + 4)
+                                : (height + 4)
+                            }
                           ]} 
                           numberOfLines={1}
                         >
@@ -122,7 +126,7 @@ export default function MultiBarChart({ months, formatValue, onBarPress, maxHeig
                         <View
                           style={[
                             styles.bar,
-                            isCurrent ? styles.currentBar : styles.previousBar,
+                            styles.currentBar, // Always use green for all positive bars
                             { 
                               height,
                               position: 'absolute',
