@@ -21,6 +21,8 @@ const translations = {
             // Screen titles
             'screen.addExpense': 'Add Expense',
             'screen.editExpense': 'Edit Expense',
+            'screen.addIncome': 'Add Income',
+            'screen.editIncome': 'Edit Income',
             'screen.dashboard': 'Dashboard',
             'screen.categoryBreakdown': 'Category Breakdown',
     
@@ -34,12 +36,17 @@ const translations = {
             'button.submit': 'Submit',
             'button.saveChanges': 'Save changes',
             'button.addExpense': 'Add Expense',
+            'button.addIncome': 'Add Income',
             'button.scanReceipt': 'Scan receipt (coming soon)',
             'button.ok': 'OK',
             'button.selectCategory': 'Select a category',
             'button.deleteExpense': 'Delete Expense',
+            'button.deleteIncome': 'Delete Income',
             'button.delete': 'Delete',
             'button.cancel': 'Cancel',
+            'button.overview': 'Overview',
+            'button.income': 'Income',
+            'button.expenses': 'Expenses',
     
             // Messages
             'message.expenseAdded': 'Expense added successfully!',
@@ -47,12 +54,22 @@ const translations = {
             'message.expenseDeleted': 'Expense deleted successfully',
             'message.deletingExpense': 'Deleting expense...',
             'message.confirmDelete': 'Are you sure you want to delete this expense? This action cannot be undone.',
+            'message.confirmDeleteIncome': 'Are you sure you want to delete this income? This action cannot be undone.',
+            'message.incomeAdded': 'Income added successfully!',
+            'message.incomeUpdated': 'Income updated',
+            'message.incomeDeleted': 'Income deleted successfully',
+            'message.deletingIncome': 'Deleting income...',
             'message.success': 'Success',
             'message.loadingExpense': 'Loading expense...',
+            'message.loadingIncome': 'Loading income...',
             'message.failedToCreate': 'Failed to create expense',
             'message.failedToUpdate': 'Failed to update expense',
             'message.failedToDelete': 'Failed to delete expense',
             'message.failedToLoad': 'Failed to load expense',
+            'message.failedToCreateIncome': 'Failed to create income',
+            'message.failedToUpdateIncome': 'Failed to update income',
+            'message.failedToDeleteIncome': 'Failed to delete income',
+            'message.failedToLoadIncome': 'Failed to load income',
     
     // Validation errors
             'error.invalidAmount': 'Please enter a valid amount greater than 0',
@@ -62,11 +79,16 @@ const translations = {
     
             // Dashboard
             'dashboard.currentMonthTotal': 'Current Month Total',
+            'dashboard.netIncome': 'Net Income',
+            'dashboard.totalIncome': 'Total Income',
+            'dashboard.totalExpenses': 'Total Expenses',
             'dashboard.monthComparison': 'Month Comparison',
             'dashboard.last6Months': 'Last 6 Months',
             'dashboard.recentExpenses': 'Recent Expenses',
+            'dashboard.recentIncome': 'Recent Income',
             'dashboard.monthlyTotals': 'Monthly Totals',
             'dashboard.noExpenses': 'No expenses yet',
+            'dashboard.noIncome': 'No income yet',
             'dashboard.noMonthlyData': 'No monthly data yet',
             'dashboard.error': 'Error',
             'dashboard.tapForDetails': 'Tap for category breakdown',
@@ -76,7 +98,7 @@ const translations = {
             'dashboard.total': 'Total',
             'dashboard.noData': 'No data',
     
-    // Categories
+    // Expense Categories
     'category.groceries': 'Groceries',
     'category.utilities': 'Utilities',
     'category.transportation': 'Transportation',
@@ -94,6 +116,14 @@ const translations = {
     'category.insurance': 'Insurance',
     'category.taxes': 'Taxes',
     'category.other': 'Other',
+    
+    // Income Categories
+    'category.salary': 'Salary',
+    'category.freelance': 'Freelance',
+    'category.investment': 'Investment',
+    'category.gift': 'Gift',
+    'category.bonus': 'Bonus',
+    'category.otherIncome': 'Other',
     
     // Placeholders
     'placeholder.amount': '0.00',
@@ -158,6 +188,8 @@ const translations = {
             // Screen titles
             'screen.addExpense': 'Dodaj Rashod',
             'screen.editExpense': 'Izmeni Rashod',
+            'screen.addIncome': 'Dodaj Prihod',
+            'screen.editIncome': 'Izmeni Prihod',
             'screen.dashboard': 'Kontrolna Tabla',
             'screen.categoryBreakdown': 'Pregled po Kategorijama',
     
@@ -171,12 +203,17 @@ const translations = {
     'button.submit': 'Pošalji',
     'button.saveChanges': 'Sačuvaj izmene',
     'button.addExpense': 'Dodaj Rashod',
+    'button.addIncome': 'Dodaj Prihod',
     'button.scanReceipt': 'Skeniraj račun (uskoro)',
     'button.ok': 'OK',
     'button.selectCategory': 'Izaberi kategoriju',
     'button.deleteExpense': 'Obriši Rashod',
+    'button.deleteIncome': 'Obriši Prihod',
     'button.delete': 'Obriši',
     'button.cancel': 'Otkaži',
+    'button.overview': 'Pregled',
+    'button.income': 'Prihod',
+    'button.expenses': 'Rashodi',
     
             // Messages
             'message.expenseAdded': 'Rashod je uspešno dodat!',
@@ -184,12 +221,22 @@ const translations = {
             'message.expenseDeleted': 'Rashod je uspešno obrisan',
             'message.deletingExpense': 'Brisanje rashoda...',
             'message.confirmDelete': 'Da li ste sigurni da želite da obrišete ovaj rashod? Ova akcija se ne može poništiti.',
+            'message.confirmDeleteIncome': 'Da li ste sigurni da želite da obrišete ovaj prihod? Ova akcija se ne može poništiti.',
+            'message.incomeAdded': 'Prihod je uspešno dodat!',
+            'message.incomeUpdated': 'Prihod je ažuriran',
+            'message.incomeDeleted': 'Prihod je uspešno obrisan',
+            'message.deletingIncome': 'Brisanje prihoda...',
             'message.success': 'Uspeh',
             'message.loadingExpense': 'Učitavanje rashoda...',
+            'message.loadingIncome': 'Učitavanje prihoda...',
             'message.failedToCreate': 'Neuspešno kreiranje rashoda',
             'message.failedToUpdate': 'Neuspešno ažuriranje rashoda',
             'message.failedToDelete': 'Neuspešno brisanje rashoda',
             'message.failedToLoad': 'Neuspešno učitavanje rashoda',
+            'message.failedToCreateIncome': 'Neuspešno kreiranje prihoda',
+            'message.failedToUpdateIncome': 'Neuspešno ažuriranje prihoda',
+            'message.failedToDeleteIncome': 'Neuspešno brisanje prihoda',
+            'message.failedToLoadIncome': 'Neuspešno učitavanje prihoda',
     
     // Validation errors
             'error.invalidAmount': 'Molimo unesite važeći iznos veći od 0',
@@ -199,11 +246,16 @@ const translations = {
     
             // Dashboard
             'dashboard.currentMonthTotal': 'Ukupno za Tekući Mesec',
+            'dashboard.netIncome': 'Neto Prihod',
+            'dashboard.totalIncome': 'Ukupan Prihod',
+            'dashboard.totalExpenses': 'Ukupni Rashodi',
             'dashboard.monthComparison': 'Poređenje Meseci',
             'dashboard.last6Months': 'Poslednjih 6 Meseci',
             'dashboard.recentExpenses': 'Nedavni Rashodi',
+            'dashboard.recentIncome': 'Nedavni Prihodi',
             'dashboard.monthlyTotals': 'Mesečni Ukupni',
             'dashboard.noExpenses': 'Još nema rashoda',
+            'dashboard.noIncome': 'Još nema prihoda',
             'dashboard.noMonthlyData': 'Još nema mesečnih podataka',
             'dashboard.error': 'Greška',
             'dashboard.tapForDetails': 'Kliknite za pregled po kategorijama',
@@ -213,7 +265,7 @@ const translations = {
             'dashboard.total': 'Ukupno',
             'dashboard.noData': 'Nema podataka',
     
-    // Categories
+    // Expense Categories
     'category.groceries': 'Namirnice',
     'category.utilities': 'Komunalije',
     'category.transportation': 'Prevoz',
@@ -231,6 +283,14 @@ const translations = {
     'category.insurance': 'Osiguranje',
     'category.taxes': 'Porezi',
     'category.other': 'Ostalo',
+    
+    // Income Categories
+    'category.salary': 'Plata',
+    'category.freelance': 'Slobodno Zanimanje',
+    'category.investment': 'Investicija',
+    'category.gift': 'Poklon',
+    'category.bonus': 'Bonus',
+    'category.otherIncome': 'Ostalo',
     
     // Placeholders
     'placeholder.amount': '0.00',

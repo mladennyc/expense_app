@@ -17,6 +17,8 @@ import PrivacyPolicyScreen from './screens/PrivacyPolicyScreen';
 import DashboardScreen from './screens/DashboardScreen';
 import AddExpenseScreen from './screens/AddExpenseScreen';
 import EditExpenseScreen from './screens/EditExpenseScreen';
+import AddIncomeScreen from './screens/AddIncomeScreen';
+import EditIncomeScreen from './screens/EditIncomeScreen';
 import CategoryBreakdownScreen from './screens/CategoryBreakdownScreen';
 import SettingsScreen from './screens/SettingsScreen';
 
@@ -113,6 +115,22 @@ function AppNavigator() {
           component={EditExpenseScreen}
           options={{ 
             title: t('screen.editExpense'),
+            headerShown: true,
+          }}
+        />
+        <Stack.Screen 
+          name="AddIncome" 
+          component={AddIncomeScreen}
+          options={{ 
+            title: t('screen.addIncome'),
+            headerShown: true,
+          }}
+        />
+        <Stack.Screen 
+          name="EditIncome" 
+          component={EditIncomeScreen}
+          options={{ 
+            title: t('screen.editIncome'),
             headerShown: true,
           }}
         />

@@ -8,7 +8,7 @@ from collections import defaultdict
 from sqlalchemy.orm import Session
 import os
 
-from database import get_db, init_db, User, Expense as ExpenseModel
+from database import get_db, init_db, User, Expense as ExpenseModel, Income as IncomeModel
 from auth import (
     get_password_hash, verify_password, create_access_token,
     get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES
@@ -102,6 +102,31 @@ class ExpenseIn(BaseModel):
 
 
 class Expense(BaseModel):
+    id: int
+    amount: float
+    date: date
+    category: Optional[str] = None
+    description: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class IncomeIn(BaseModel):
+    amount: float
+    date: date
+    category: Optional[str] = None
+    description: Optional[str] = None
+
+    @field_validator('amount')
+    @classmethod
+    def validate_amount(cls, v):
+        if v <= 0:
+            raise ValueError('Amount must be greater than 0')
+        return v
+
+
+class Income(BaseModel):
     id: int
     amount: float
     date: date
@@ -673,3 +698,274 @@ async def get_stats_by_month(
         for month, total in sorted(monthly_totals.items(), reverse=True)
     ]
     return result
+
+
+# Income endpoints (protected)
+@app.post("/income", response_model=Income)
+async def create_income(
+    income: IncomeIn,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create a new income entry (requires authentication)"""
+    db_income = IncomeModel(
+        user_id=current_user.id,
+        amount=income.amount,
+        date=income.date,
+        category=income.category,
+        description=income.description
+    )
+    db.add(db_income)
+    db.commit()
+    db.refresh(db_income)
+    
+    return Income(
+        id=db_income.id,
+        amount=db_income.amount,
+        date=db_income.date,
+        category=db_income.category,
+        description=db_income.description
+    )
+
+
+@app.get("/income/recent", response_model=List[Income])
+async def get_recent_income(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get the last 10 income entries for current user sorted by date descending"""
+    incomes = db.query(IncomeModel).filter(
+        IncomeModel.user_id == current_user.id
+    ).order_by(IncomeModel.date.desc()).limit(10).all()
+    
+    return [
+        Income(
+            id=i.id,
+            amount=i.amount,
+            date=i.date,
+            category=i.category,
+            description=i.description
+        )
+        for i in incomes
+    ]
+
+
+@app.get("/income/{income_id}", response_model=Income)
+async def get_income(
+    income_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get a specific income entry by ID (requires authentication)"""
+    income = db.query(IncomeModel).filter(
+        IncomeModel.id == income_id,
+        IncomeModel.user_id == current_user.id
+    ).first()
+    
+    if not income:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Income not found"
+        )
+    
+    return Income(
+        id=income.id,
+        amount=income.amount,
+        date=income.date,
+        category=income.category,
+        description=income.description
+    )
+
+
+@app.put("/income/{income_id}", response_model=Income)
+async def update_income(
+    income_id: int,
+    income: IncomeIn,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update an existing income entry (requires authentication)"""
+    db_income = db.query(IncomeModel).filter(
+        IncomeModel.id == income_id,
+        IncomeModel.user_id == current_user.id
+    ).first()
+    
+    if not db_income:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Income not found"
+        )
+    
+    # Update income fields
+    db_income.amount = income.amount
+    db_income.date = income.date
+    db_income.category = income.category
+    db_income.description = income.description
+    
+    db.commit()
+    db.refresh(db_income)
+    
+    return Income(
+        id=db_income.id,
+        amount=db_income.amount,
+        date=db_income.date,
+        category=db_income.category,
+        description=db_income.description
+    )
+
+
+@app.delete("/income/{income_id}")
+async def delete_income(
+    income_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete an income entry (requires authentication)"""
+    db_income = db.query(IncomeModel).filter(
+        IncomeModel.id == income_id,
+        IncomeModel.user_id == current_user.id
+    ).first()
+    
+    if not db_income:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Income not found"
+        )
+    
+    db.delete(db_income)
+    db.commit()
+    
+    return {"message": "Income deleted successfully"}
+
+
+@app.get("/stats/income/current-month")
+async def get_current_month_income_stats(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get total income for the last 6 months for current user"""
+    current_date = datetime.now().date()
+    months_data = []
+    
+    # Get last 6 months including current month
+    for i in range(6):
+        if i == 0:
+            # Current month (partial)
+            month_start = date(current_date.year, current_date.month, 1)
+            month_end = current_date
+            month_key = current_date.strftime("%Y-%m")
+        else:
+            # Previous months (full month)
+            if current_date.month - i <= 0:
+                year = current_date.year - 1
+                month = current_date.month - i + 12
+            else:
+                year = current_date.year
+                month = current_date.month - i
+            
+            month_start = date(year, month, 1)
+            # Get last day of month
+            if month == 12:
+                month_end = date(year + 1, 1, 1) - timedelta(days=1)
+            else:
+                month_end = date(year, month + 1, 1) - timedelta(days=1)
+            month_key = month_start.strftime("%Y-%m")
+        
+        incomes = db.query(IncomeModel).filter(
+            IncomeModel.user_id == current_user.id,
+            IncomeModel.date >= month_start,
+            IncomeModel.date <= month_end
+        ).all()
+        
+        total = sum(income.amount for income in incomes)
+        months_data.append({
+            "month": month_key,
+            "total": total,
+            "isCurrent": i == 0
+        })
+    
+    # Reverse to show oldest first
+    months_data.reverse()
+    
+    return {
+        "months": months_data,
+        "current": months_data[-1] if months_data else None
+    }
+
+
+@app.get("/stats/income/by-month")
+async def get_income_by_month(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get income totals grouped by YYYY-MM for current user, sorted by month"""
+    incomes = db.query(IncomeModel).filter(
+        IncomeModel.user_id == current_user.id
+    ).all()
+    
+    monthly_totals = defaultdict(float)
+    for income in incomes:
+        month_key = income.date.strftime("%Y-%m")
+        monthly_totals[month_key] += income.amount
+    
+    result = [
+        {"month": month, "total": total}
+        for month, total in sorted(monthly_totals.items(), reverse=True)
+    ]
+    return result
+
+
+@app.get("/stats/net-income")
+async def get_net_income(
+    month: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get net income (income - expenses) for a specific month. If no month provided, uses current month."""
+    current_date = datetime.now().date()
+    
+    if month:
+        # Parse provided month
+        try:
+            year, month_num = map(int, month.split('-'))
+            month_start = date(year, month_num, 1)
+            # Get last day of month
+            if month_num == 12:
+                month_end = date(year + 1, 1, 1) - timedelta(days=1)
+            else:
+                month_end = date(year, month_num + 1, 1) - timedelta(days=1)
+            # For current month, limit to today
+            if month == current_date.strftime("%Y-%m"):
+                month_end = current_date
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM")
+    else:
+        # Default to current month
+        month_start = date(current_date.year, current_date.month, 1)
+        month_end = current_date
+        month = current_date.strftime("%Y-%m")
+    
+    # Get income for the month
+    incomes = db.query(IncomeModel).filter(
+        IncomeModel.user_id == current_user.id,
+        IncomeModel.date >= month_start,
+        IncomeModel.date <= month_end
+    ).all()
+    total_income = sum(income.amount for income in incomes)
+    
+    # Get expenses for the month
+    expenses = db.query(ExpenseModel).filter(
+        ExpenseModel.user_id == current_user.id,
+        ExpenseModel.date >= month_start,
+        ExpenseModel.date <= month_end
+    ).all()
+    total_expenses = sum(expense.amount for expense in expenses)
+    
+    net_income = total_income - total_expenses
+    
+    return {
+        "month": month,
+        "income": total_income,
+        "expenses": total_expenses,
+        "net": net_income
+    }

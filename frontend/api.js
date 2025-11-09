@@ -228,3 +228,84 @@ export async function deleteAccount() {
   });
   return await response.json();
 }
+
+// Income API functions
+export async function getCurrentMonthIncomeStats() {
+  const response = await authenticatedFetch(`${BASE_URL}/stats/income/current-month`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch income stats");
+  }
+  return normalizeBooleans(await response.json());
+}
+
+export async function getRecentIncome() {
+  const response = await authenticatedFetch(`${BASE_URL}/income/recent`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch recent income");
+  }
+  return normalizeBooleans(await response.json());
+}
+
+export async function getIncomeByMonth() {
+  const response = await authenticatedFetch(`${BASE_URL}/stats/income/by-month`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch income by month");
+  }
+  return normalizeBooleans(await response.json());
+}
+
+export async function createIncome(data) {
+  const response = await authenticatedFetch(`${BASE_URL}/income`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || "Failed to create income");
+  }
+  return normalizeBooleans(await response.json());
+}
+
+export async function getIncome(incomeId) {
+  const response = await authenticatedFetch(`${BASE_URL}/income/${incomeId}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch income");
+  }
+  return normalizeBooleans(await response.json());
+}
+
+export async function updateIncome(incomeId, data) {
+  const response = await authenticatedFetch(`${BASE_URL}/income/${incomeId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || "Failed to update income");
+  }
+  return normalizeBooleans(await response.json());
+}
+
+export async function deleteIncome(incomeId) {
+  const response = await authenticatedFetch(`${BASE_URL}/income/${incomeId}`, {
+    method: "DELETE",
+  });
+  return await response.json();
+}
+
+export async function getNetIncome(month = null) {
+  const url = month 
+    ? `${BASE_URL}/stats/net-income?month=${month}`
+    : `${BASE_URL}/stats/net-income`;
+  const response = await authenticatedFetch(url);
+  if (!response.ok) {
+    throw new Error("Failed to fetch net income");
+  }
+  return normalizeBooleans(await response.json());
+}

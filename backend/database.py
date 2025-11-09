@@ -39,6 +39,7 @@ class User(Base):
     reset_token_expires = Column(DateTime, nullable=True)
 
     expenses = relationship("Expense", back_populates="owner")
+    incomes = relationship("Income", back_populates="owner")
 
 
 class Expense(Base):
@@ -53,6 +54,20 @@ class Expense(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     owner = relationship("User", back_populates="expenses")
+
+
+class Income(Base):
+    __tablename__ = "incomes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    amount = Column(Float, nullable=False)
+    date = Column(Date, nullable=False)
+    category = Column(String, nullable=True)
+    description = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    owner = relationship("User", back_populates="incomes")
 
 
 # Create tables
