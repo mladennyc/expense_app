@@ -209,6 +209,25 @@ export default function DashboardScreen({ navigation }) {
           </Text>
         </View>
       </View>
+
+      {/* Income vs Expenses Chart - Last 6 Months */}
+      {currentMonthIncomeStats && currentMonthIncomeStats.months && currentMonthStats && currentMonthStats.months && (
+        <View style={styles.comparisonContainer}>
+          <Text style={styles.comparisonTitle}>{t('dashboard.last6Months')}</Text>
+          <MultiBarChart
+            months={currentMonthIncomeStats.months.map((incomeMonth, index) => {
+              const expenseMonth = currentMonthStats.months.find(m => m.month === incomeMonth.month);
+              return {
+                month: incomeMonth.month,
+                total: incomeMonth.total - (expenseMonth?.total || 0), // Net income (income - expenses)
+                isCurrent: incomeMonth.isCurrent
+              };
+            })}
+            formatValue={formatCurrency}
+            onBarPress={null}
+          />
+        </View>
+      )}
     </View>
   );
 
