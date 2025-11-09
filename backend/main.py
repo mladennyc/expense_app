@@ -113,6 +113,7 @@ class Expense(BaseModel):
 
 
 @app.get("/")
+@app.head("/")
 def read_root():
     return {"status": "ok", "message": "backend is running"}
 
