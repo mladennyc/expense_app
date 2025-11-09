@@ -67,15 +67,17 @@ async function authenticatedFetch(url, options = {}) {
     return response;
   }
 
-  // For JSON requests
-  if (options.body && typeof options.body === 'object') {
+  // For JSON requests - always stringify objects and set Content-Type
+  let requestBody = options.body;
+  if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
+    requestBody = JSON.stringify(options.body);
   }
 
   const response = await fetch(url, {
     ...options,
     headers,
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    body: requestBody,
   });
 
   if (!response.ok) {
