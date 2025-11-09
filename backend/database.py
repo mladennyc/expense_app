@@ -2,13 +2,25 @@ from sqlalchemy import create_engine, Column, Integer, String, Float, Date, Date
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
+import os
 
-# SQLite database (will be in backend/expenses.db)
-SQLALCHEMY_DATABASE_URL = "sqlite:///./expenses.db"
+# Use PostgreSQL if DATABASE_URL is set (Render), otherwise use SQLite (local development)
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
+if DATABASE_URL:
+    # PostgreSQL (production on Render)
+    # Render provides DATABASE_URL in format: postgresql://user:pass@host:port/dbname
+    # SQLAlchemy needs postgresql:// (not postgres://)
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    SQLALCHEMY_DATABASE_URL = DATABASE_URL
+    engine = create_engine(SQLALCHEMY_DATABASE_URL)
+else:
+    # SQLite (local development)
+    SQLALCHEMY_DATABASE_URL = "sqlite:///./expenses.db"
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
