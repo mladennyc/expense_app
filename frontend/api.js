@@ -86,16 +86,14 @@ async function authenticatedFetch(url, options = {}) {
   };
   console.log('authenticatedFetch: Final headers:', mergedHeaders);
   console.log('authenticatedFetch: Final body type:', typeof requestBody, 'value:', requestBody);
-  // Explicitly construct fetch options to ensure body and headers are correct
+  // Explicitly construct fetch options - only include what we need
   const fetchOptions = {
     method: options.method || 'GET',
-    ...restOptions,
     headers: mergedHeaders,
-    body: requestBody,
   };
-  // Remove body if it's null/undefined for GET requests
-  if (!requestBody && (fetchOptions.method === 'GET' || fetchOptions.method === 'HEAD')) {
-    delete fetchOptions.body;
+  // Only add body for POST/PUT/PATCH requests
+  if (requestBody && ['POST', 'PUT', 'PATCH'].includes(fetchOptions.method)) {
+    fetchOptions.body = requestBody;
   }
   const response = await fetch(url, fetchOptions);
 
