@@ -341,3 +341,30 @@ export async function getNetIncome(month = null) {
   }
   return normalizeBooleans(await response.json());
 }
+
+// Receipt scanning
+export async function scanReceipt(imageBase64) {
+  const token = await getAuthToken();
+  if (!token) {
+    throw new Error('Not authenticated. Please login again.');
+  }
+  
+  // Send base64 as JSON for cross-platform compatibility
+  const response = await fetch(`${BASE_URL}/receipts/scan`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token.trim()}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      image_base64: imageBase64
+    }),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to scan receipt' }));
+    throw new Error(error.detail || 'Failed to scan receipt');
+  }
+  
+  return await response.json();
+}

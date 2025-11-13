@@ -59,3 +59,4 @@ with engine.connect() as conn:
     else:
         print("\nWARNING: 'incomes' table does not exist (this is expected if you just added it)")
 
+

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { createExpense } from '../api';
@@ -46,19 +46,49 @@ const CATEGORY_KEY_TO_NAME = {
   'category.other': 'Other'
 };
 
-export default function AddExpenseScreen({ navigation }) {
+// Reverse map: English category name to translation key
+const CATEGORY_NAME_TO_KEY = {};
+Object.keys(CATEGORY_KEY_TO_NAME).forEach(key => {
+  CATEGORY_NAME_TO_KEY[CATEGORY_KEY_TO_NAME[key]] = key;
+});
+
+export { CATEGORY_KEY_TO_NAME, CATEGORY_NAME_TO_KEY };
+
+export default function AddExpenseScreen({ navigation, route }) {
   const { t } = useLanguage();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
-  const [amount, setAmount] = useState('');
-  const [date, setDate] = useState(today);
+  // Handle prefill data from receipt scanning
+  const prefillData = route.params?.prefillData;
+  
+  const [amount, setAmount] = useState(prefillData?.amount || '');
+  const [date, setDate] = useState(() => {
+    if (prefillData?.date) {
+      try {
+        const [year, month, day] = prefillData.date.split('-').map(Number);
+        const prefilledDate = new Date(year, month - 1, day);
+        prefilledDate.setHours(0, 0, 0, 0);
+        return prefilledDate;
+      } catch {
+        return today;
+      }
+    }
+    return today;
+  });
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [category, setCategory] = useState('');
+  const [category, setCategory] = useState(prefillData?.category || '');
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
-  const [description, setDescription] = useState('');
+  const [description, setDescription] = useState(prefillData?.description || '');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: null, text: '' });
+  
+  // Clear route params after using them
+  useEffect(() => {
+    if (prefillData && navigation) {
+      navigation.setParams({ prefillData: undefined });
+    }
+  }, [prefillData, navigation]);
 
   const formatDate = (dateObj) => {
     const year = dateObj.getFullYear();
@@ -156,6 +186,14 @@ export default function AddExpenseScreen({ navigation }) {
             </Text>
           </View>
         ) : null}
+
+        <TouchableOpacity
+          style={styles.scanButton}
+          onPress={() => navigation.navigate('ReceiptCamera')}
+          disabled={Boolean(loading)}
+        >
+          <Text style={styles.scanButtonText}>📷 {Platform.OS === 'web' ? t('receipt.selectReceiptPhoto') : t('receipt.scanReceipt')}</Text>
+        </TouchableOpacity>
 
         <View style={styles.inputContainer}>
           <Text style={styles.label}>{t('label.amount')} *</Text>
@@ -336,6 +374,21 @@ const styles = StyleSheet.create({
       marginBottom: 32,
       textAlign: 'center',
     }),
+  },
+  scanButton: {
+    backgroundColor: colors.primary,
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 20,
+    ...(Platform.OS === 'web' && {
+      padding: 14,
+    }),
+  },
+  scanButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   messageContainer: {
     padding: 12,

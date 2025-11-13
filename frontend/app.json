@@ -19,7 +19,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#10B981"
       },
-      "permissions": []
+      "permissions": ["CAMERA"]
     },
     "web": {
       "bundler": "metro",

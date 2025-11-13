@@ -21,6 +21,8 @@ import AddIncomeScreen from './screens/AddIncomeScreen';
 import EditIncomeScreen from './screens/EditIncomeScreen';
 import CategoryBreakdownScreen from './screens/CategoryBreakdownScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import ReceiptCameraScreen from './screens/ReceiptCameraScreen';
+import ReceiptReviewScreen from './screens/ReceiptReviewScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -147,6 +149,22 @@ function AppNavigator() {
           component={SettingsScreen}
           options={{ 
             title: t('screen.settings'),
+            headerShown: true,
+          }}
+        />
+        <Stack.Screen 
+          name="ReceiptCamera" 
+          component={ReceiptCameraScreen}
+          options={{ 
+            title: t('screen.scanReceipt'),
+            headerShown: true,
+          }}
+        />
+        <Stack.Screen 
+          name="ReceiptReview" 
+          component={ReceiptReviewScreen}
+          options={{ 
+            title: t('screen.reviewReceipt'),
             headerShown: true,
           }}
         />

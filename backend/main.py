@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, field_validator, EmailStr
@@ -15,6 +15,10 @@ from auth import (
 )
 from email_service import send_password_reset_email
 import secrets
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = FastAPI()
 
@@ -32,6 +36,8 @@ allowed_origins = [
     "http://localhost:19006",
     "http://127.0.0.1:8081",
     "http://127.0.0.1:19006",
+    "http://192.168.1.76:8081",
+    "http://192.168.1.76:19006",
 ]
 
 app.add_middleware(
@@ -1039,3 +1045,171 @@ async def get_net_income(
         "expenses": total_expenses,
         "net": net_income
     }
+
+
+# Receipt scanning endpoint - accepts base64 JSON
+class ReceiptScanRequest(BaseModel):
+    image_base64: str
+
+@app.post("/receipts/scan")
+async def scan_receipt(
+    request: ReceiptScanRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Scan receipt image using GPT-4 Turbo and extract expense data"""
+    from openai import OpenAI
+    import base64
+    import json
+    
+    # Your app's category list
+    CATEGORIES = [
+        "Groceries", "Utilities", "Transportation", "Housing",
+        "Healthcare", "Education", "Entertainment", "Dining Out",
+        "Clothing", "Personal Care", "Gifts & Donations", "Travel",
+        "Loans & Debt Payments", "Bank Fees", "Insurance", "Taxes", "Other"
+    ]
+    
+    try:
+        # Get base64 from request
+        image_base64 = request.image_base64
+        if not image_base64:
+            raise HTTPException(status_code=400, detail="No image data provided")
+        
+        # Remove data URL prefix if present
+        if ',' in image_base64:
+            image_base64 = image_base64.split(',')[1]
+        
+        print(f"Receipt scan request received, image size: {len(image_base64)} chars")
+        
+        # Initialize OpenAI client
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        if not openai_api_key:
+            print("ERROR: OPENAI_API_KEY not set")
+            raise HTTPException(
+                status_code=500,
+                detail="OpenAI API key not configured. Please set OPENAI_API_KEY environment variable."
+            )
+        
+        print(f"OpenAI API key found, length: {len(openai_api_key)}")
+        client = OpenAI(api_key=openai_api_key)
+        
+        # Create prompt with categories
+        prompt = f"""Extract expense data from this receipt image and return JSON with:
+- amount: numeric value only (float), extract the total amount
+- date: YYYY-MM-DD format (extract from receipt, use today's date {datetime.now().date()} if not found)
+- merchant: store/company name (string, extract from receipt)
+- category: MUST match one of these exactly: {', '.join(CATEGORIES)}. Choose the best match based on merchant name and items purchased. If uncertain, use "Other".
+- description: brief description of purchase (optional, can be null)
+
+Return ONLY valid JSON, no other text. Example:
+{{"amount": 45.99, "date": "2024-01-15", "merchant": "Walmart", "category": "Groceries", "description": "Grocery shopping"}}"""
+
+        # Call GPT-4 Turbo with vision
+        print("Calling OpenAI API...")
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4o",  # Using gpt-4o which is more available
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}
+                    ]
+                }],
+                response_format={"type": "json_object"},
+                max_tokens=500
+            )
+            print("OpenAI API call successful")
+            
+            # Log token usage and cost
+            if hasattr(response, 'usage') and response.usage:
+                usage = response.usage
+                prompt_tokens = usage.prompt_tokens if hasattr(usage, 'prompt_tokens') else 0
+                completion_tokens = usage.completion_tokens if hasattr(usage, 'completion_tokens') else 0
+                total_tokens = usage.total_tokens if hasattr(usage, 'total_tokens') else 0
+                
+                # GPT-4o pricing (as of 2024): $2.50 per 1M input tokens, $10.00 per 1M output tokens
+                input_cost_per_1k = 0.0025  # $2.50 per 1M = $0.0025 per 1K
+                output_cost_per_1k = 0.01   # $10.00 per 1M = $0.01 per 1K
+                
+                input_cost = (prompt_tokens / 1000) * input_cost_per_1k
+                output_cost = (completion_tokens / 1000) * output_cost_per_1k
+                total_cost = input_cost + output_cost
+                
+                print(f"OpenAI Usage - Prompt tokens: {prompt_tokens}, Completion tokens: {completion_tokens}, Total: {total_tokens}")
+                print(f"OpenAI Cost - Input: ${input_cost:.6f}, Output: ${output_cost:.6f}, Total: ${total_cost:.6f}")
+            else:
+                print("OpenAI Usage: No usage data available")
+        except Exception as api_error:
+            print(f"OpenAI API error: {str(api_error)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"OpenAI API error: {str(api_error)}"
+            )
+        
+        # Parse response
+        try:
+            result = json.loads(response.choices[0].message.content)
+            print(f"Parsed result: {result}")
+        except json.JSONDecodeError as parse_error:
+            print(f"Failed to parse JSON: {response.choices[0].message.content}")
+            raise
+        
+        # Validate and clean up result
+        extracted_data = {
+            "amount": result.get("amount"),
+            "date": result.get("date"),
+            "merchant": result.get("merchant"),
+            "category": result.get("category"),
+            "description": result.get("description")
+        }
+        
+        print(f"Raw extracted data from OpenAI: {extracted_data}")
+        
+        # Validate category is in list
+        if extracted_data["category"] and extracted_data["category"] not in CATEGORIES:
+            print(f"Category '{extracted_data['category']}' not in list, setting to None")
+            extracted_data["category"] = None
+        
+        # Validate amount
+        if extracted_data["amount"]:
+            try:
+                extracted_data["amount"] = float(extracted_data["amount"])
+            except (ValueError, TypeError):
+                print(f"Invalid amount: {extracted_data['amount']}")
+                extracted_data["amount"] = None
+        else:
+            print("No amount extracted")
+        
+        # Validate date format - always provide a date
+        if extracted_data["date"]:
+            try:
+                # Try to parse date
+                datetime.strptime(extracted_data["date"], "%Y-%m-%d")
+            except (ValueError, TypeError):
+                # Use today if invalid
+                print(f"Invalid date format: {extracted_data['date']}, using today")
+                extracted_data["date"] = datetime.now().date().isoformat()
+        else:
+            # If no date, use today
+            extracted_data["date"] = datetime.now().date().isoformat()
+            print("No date extracted, using today")
+        
+        print(f"Final extracted data: {extracted_data}")
+        
+        return {
+            "success": True,
+            "data": extracted_data,
+            "confidence": "high"  # GPT-4 Turbo is generally reliable
+        }
+        
+    except json.JSONDecodeError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to parse OCR response: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing receipt: {str(e)}"
+        )
