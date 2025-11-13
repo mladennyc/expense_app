@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "npx cross-env EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0 EXPO_PUBLIC_WEB_HOST=192.168.1.76 REACT_NATIVE_PACKAGER_HOSTNAME=192.168.1.76 EXPO_PACKAGER_HOSTNAME=192.168.1.76 RCT_METRO_PORT=8081 expo start --lan",
+    "start:local": "npx cross-env EXPO_PUBLIC_USE_LOCAL_BACKEND=true EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0 EXPO_PUBLIC_WEB_HOST=192.168.1.76 REACT_NATIVE_PACKAGER_HOSTNAME=192.168.1.76 EXPO_PACKAGER_HOSTNAME=192.168.1.76 RCT_METRO_PORT=8081 expo start --lan",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
