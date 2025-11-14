@@ -55,7 +55,7 @@ export default function ExportButton() {
         style={styles.button}
         onPress={() => setShowModal(true)}
       >
-        <Text style={styles.buttonText}>📥</Text>
+        <Text style={styles.buttonText}>📥 {t('export.exportData') || 'Export'}</Text>
       </TouchableOpacity>
       
       <Modal

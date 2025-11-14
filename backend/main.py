@@ -1287,7 +1287,7 @@ async def export_csv(
         writer = csv.writer(output)
         
         # Write header
-        writer.writerow(['Type', 'Date', 'Amount', 'Category', 'Merchant', 'Description'])
+        writer.writerow(['Type', 'Date', 'Amount', 'Category', 'Description'])
         
         # Write expenses
         for expense in expenses:
@@ -1296,7 +1296,6 @@ async def export_csv(
                 expense.date.isoformat() if expense.date else '',
                 expense.amount if expense.amount else '',
                 expense.category if expense.category else '',
-                expense.merchant if expense.merchant else '',
                 expense.description if expense.description else ''
             ])
         
@@ -1307,7 +1306,6 @@ async def export_csv(
                 income.date.isoformat() if income.date else '',
                 income.amount if income.amount else '',
                 income.category if income.category else '',
-                '',  # Income doesn't have merchant
                 income.description if income.description else ''
             ])
         
@@ -1425,16 +1423,15 @@ async def export_pdf(
         # Expenses section
         if expenses:
             story.append(Paragraph("Expenses", styles['Heading2']))
-            expense_data = [['Date', 'Amount', 'Category', 'Merchant', 'Description']]
+            expense_data = [['Date', 'Amount', 'Category', 'Description']]
             for expense in expenses:
                 expense_data.append([
                     expense.date.isoformat() if expense.date else '',
                     f"${expense.amount:,.2f}" if expense.amount else '',
                     expense.category if expense.category else '',
-                    expense.merchant if expense.merchant else '',
                     expense.description if expense.description else ''
                 ])
-            expense_table = Table(expense_data, colWidths=[1*inch, 1*inch, 1.2*inch, 1.2*inch, 2*inch])
+            expense_table = Table(expense_data, colWidths=[1*inch, 1*inch, 1.5*inch, 3.5*inch])
             expense_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
