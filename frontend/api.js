@@ -1,5 +1,6 @@
 // API functions for communicating with the backend
 import { BASE_URL } from "./config";
+import { Platform } from 'react-native';
 
 // Helper function to get auth token from AsyncStorage
 let AsyncStorage;
@@ -368,4 +369,59 @@ export async function scanReceipt(imageBase64, language = 'en') {
   }
   
   return await response.json();
+}
+
+// Export functions
+export async function exportData(startDate, endDate, format) {
+  const token = await getAuthToken();
+  if (!token) {
+    throw new Error('Not authenticated. Please login again.');
+  }
+  
+  const startDateStr = startDate.toISOString().split('T')[0];
+  const endDateStr = endDate.toISOString().split('T')[0];
+  
+  const url = `${BASE_URL}/export/${format}?start_date=${startDateStr}&end_date=${endDateStr}`;
+  
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token.trim()}`,
+    },
+  });
+  
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Export failed' }));
+    throw new Error(error.detail || 'Export failed');
+  }
+  
+  // Get filename from Content-Disposition header or generate one
+  const contentDisposition = response.headers.get('Content-Disposition');
+  let filename = `export_${startDateStr}_to_${endDateStr}.${format}`;
+  if (contentDisposition) {
+    const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+    if (filenameMatch) {
+      filename = filenameMatch[1];
+    }
+  }
+  
+  // Handle download based on platform
+  if (Platform.OS === 'web') {
+    // Web: Create blob and download
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    return { success: true, filename };
+  } else {
+    // Mobile: Save to device (would need expo-file-system or similar)
+    // For now, return the blob data
+    const blob = await response.blob();
+    return { success: true, filename, blob };
+  }
 }

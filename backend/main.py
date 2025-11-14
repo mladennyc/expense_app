@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile
+from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile, Response
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, field_validator, EmailStr
@@ -1105,7 +1106,7 @@ async def scan_receipt(
         # Language mapping for descriptions
         language_map = {
             'en': 'English',
-            'sr': 'Serbian',
+            'sr': 'Serbian (Latin script, not Cyrillic)',
             'es': 'Spanish',
             'pt': 'Portuguese',
             'fr': 'French',
@@ -1116,16 +1117,25 @@ async def scan_receipt(
         user_language = request.language or 'en'
         description_language = language_map.get(user_language, 'English')
         
+        # Additional instruction for Serbian
+        serbian_note = ""
+        if user_language == 'sr':
+            serbian_note = " IMPORTANT: For Serbian, use Latin script (not Cyrillic). Use letters like a, b, c, d, e, etc., not Cyrillic characters."
+        
         # Create prompt with categories
         prompt = f"""Extract expense data from this receipt image and return JSON with:
 - amount: numeric value only (float), extract the total amount
 - date: YYYY-MM-DD format (extract from receipt, use today's date {datetime.now().date()} if not found)
-- merchant: store/company name (string, extract from receipt)
-- category: MUST match one of these exactly: {', '.join(CATEGORIES)}. Choose the best match based on merchant name and items purchased. If uncertain, use "Other".
-- description: brief description of purchase in {description_language} language (optional, can be null). IMPORTANT: Write the description in {description_language}, not in English.
+- merchant: store/company name (string, can be null). IMPORTANT: Only extract the merchant name if it is clearly visible on the receipt. Do NOT guess, assume, or infer the merchant name based on items or your knowledge. If the merchant name is not clearly visible on the receipt, set this to null.
+- category: MUST match one of these exactly: {', '.join(CATEGORIES)}. Choose the best match based on items purchased visible on the receipt. If uncertain, use "Other".
+- description: brief description of purchase in {description_language} language (optional, can be null). IMPORTANT: Write the description in {description_language}, not in English.{serbian_note}
+
+CRITICAL: Only extract information that is actually visible on the receipt. Do NOT use your knowledge or make assumptions. If something is not clearly visible, set it to null.
 
 Return ONLY valid JSON, no other text. Example:
-{{"amount": 45.99, "date": "2024-01-15", "merchant": "Walmart", "category": "Groceries", "description": "Grocery shopping"}}"""
+{{"amount": 45.99, "date": "2024-01-15", "merchant": "Walmart", "category": "Groceries", "description": "Grocery shopping"}}
+Example with missing merchant:
+{{"amount": 45.99, "date": "2024-01-15", "merchant": null, "category": "Groceries", "description": "Grocery shopping"}}"""
 
         # Call GPT-4 Turbo with vision
         print("Calling OpenAI API...")
@@ -1236,3 +1246,246 @@ Return ONLY valid JSON, no other text. Example:
             status_code=500,
             detail=f"Error processing receipt: {str(e)}"
         )
+
+
+# Export endpoints
+@app.get("/export/csv")
+async def export_csv(
+    start_date: str,
+    end_date: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Export expenses and income as CSV"""
+    import csv
+    import io
+    
+    try:
+        # Parse dates
+        start = datetime.strptime(start_date, "%Y-%m-%d").date()
+        end = datetime.strptime(end_date, "%Y-%m-%d").date()
+        
+        if start > end:
+            raise HTTPException(status_code=400, detail="Start date must be before end date")
+        
+        # Get expenses
+        expenses = db.query(ExpenseModel).filter(
+            ExpenseModel.user_id == current_user.id,
+            ExpenseModel.date >= start,
+            ExpenseModel.date <= end
+        ).order_by(ExpenseModel.date.desc()).all()
+        
+        # Get income
+        incomes = db.query(IncomeModel).filter(
+            IncomeModel.user_id == current_user.id,
+            IncomeModel.date >= start,
+            IncomeModel.date <= end
+        ).order_by(IncomeModel.date.desc()).all()
+        
+        # Create CSV in memory
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Write header
+        writer.writerow(['Type', 'Date', 'Amount', 'Category', 'Merchant', 'Description'])
+        
+        # Write expenses
+        for expense in expenses:
+            writer.writerow([
+                'Expense',
+                expense.date.isoformat() if expense.date else '',
+                expense.amount if expense.amount else '',
+                expense.category if expense.category else '',
+                expense.merchant if expense.merchant else '',
+                expense.description if expense.description else ''
+            ])
+        
+        # Write income
+        for income in incomes:
+            writer.writerow([
+                'Income',
+                income.date.isoformat() if income.date else '',
+                income.amount if income.amount else '',
+                income.category if income.category else '',
+                '',  # Income doesn't have merchant
+                income.description if income.description else ''
+            ])
+        
+        # Get CSV content
+        csv_content = output.getvalue()
+        output.close()
+        
+        # Generate filename
+        filename = f"expenses_{start_date}_to_{end_date}.csv"
+        
+        # Return CSV file
+        return Response(
+            content=csv_content,
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
+        )
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid date format: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating CSV: {str(e)}")
+
+
+@app.get("/export/pdf")
+async def export_pdf(
+    start_date: str,
+    end_date: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Export expenses and income as PDF with charts"""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    import io
+    
+    try:
+        # Parse dates
+        start = datetime.strptime(start_date, "%Y-%m-%d").date()
+        end = datetime.strptime(end_date, "%Y-%m-%d").date()
+        
+        if start > end:
+            raise HTTPException(status_code=400, detail="Start date must be before end date")
+        
+        # Get expenses
+        expenses = db.query(ExpenseModel).filter(
+            ExpenseModel.user_id == current_user.id,
+            ExpenseModel.date >= start,
+            ExpenseModel.date <= end
+        ).order_by(ExpenseModel.date.desc()).all()
+        
+        # Get income
+        incomes = db.query(IncomeModel).filter(
+            IncomeModel.user_id == current_user.id,
+            IncomeModel.date >= start,
+            IncomeModel.date <= end
+        ).order_by(IncomeModel.date.desc()).all()
+        
+        # Calculate totals
+        total_expenses = sum(e.amount for e in expenses if e.amount)
+        total_income = sum(i.amount for i in incomes if i.amount)
+        net_income = total_income - total_expenses
+        
+        # Create PDF in memory
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        story = []
+        styles = getSampleStyleSheet()
+        
+        # Title
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            textColor=colors.HexColor('#007AFF'),
+            spaceAfter=30,
+        )
+        story.append(Paragraph("Expense Report", title_style))
+        
+        # Date range
+        story.append(Paragraph(f"Period: {start_date} to {end_date}", styles['Normal']))
+        story.append(Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal']))
+        story.append(Spacer(1, 0.3*inch))
+        
+        # Summary section
+        story.append(Paragraph("Summary", styles['Heading2']))
+        summary_data = [
+            ['Total Income', f"${total_income:,.2f}"],
+            ['Total Expenses', f"${total_expenses:,.2f}"],
+            ['Net Income', f"${net_income:,.2f}"]
+        ]
+        summary_table = Table(summary_data, colWidths=[3*inch, 2*inch])
+        summary_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 14),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        story.append(summary_table)
+        story.append(Spacer(1, 0.3*inch))
+        
+        # Expenses section
+        if expenses:
+            story.append(Paragraph("Expenses", styles['Heading2']))
+            expense_data = [['Date', 'Amount', 'Category', 'Merchant', 'Description']]
+            for expense in expenses:
+                expense_data.append([
+                    expense.date.isoformat() if expense.date else '',
+                    f"${expense.amount:,.2f}" if expense.amount else '',
+                    expense.category if expense.category else '',
+                    expense.merchant if expense.merchant else '',
+                    expense.description if expense.description else ''
+                ])
+            expense_table = Table(expense_data, colWidths=[1*inch, 1*inch, 1.2*inch, 1.2*inch, 2*inch])
+            expense_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ]))
+            story.append(expense_table)
+            story.append(Spacer(1, 0.3*inch))
+        
+        # Income section
+        if incomes:
+            story.append(Paragraph("Income", styles['Heading2']))
+            income_data = [['Date', 'Amount', 'Category', 'Description']]
+            for income in incomes:
+                income_data.append([
+                    income.date.isoformat() if income.date else '',
+                    f"${income.amount:,.2f}" if income.amount else '',
+                    income.category if income.category else '',
+                    income.description if income.description else ''
+                ])
+            income_table = Table(income_data, colWidths=[1*inch, 1*inch, 1.5*inch, 3.5*inch])
+            income_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ]))
+            story.append(income_table)
+        
+        # Build PDF
+        doc.build(story)
+        buffer.seek(0)
+        
+        # Generate filename
+        filename = f"expenses_{start_date}_to_{end_date}.pdf"
+        
+        # Return PDF file
+        return Response(
+            content=buffer.getvalue(),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
+        )
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid date format: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating PDF: {str(e)}")
