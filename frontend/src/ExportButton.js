@@ -7,12 +7,48 @@ import { exportData } from '../api';
 export default function ExportButton() {
   const { t } = useLanguage();
   const [showModal, setShowModal] = useState(false);
-  const [startDate, setStartDate] = useState(new Date(new Date().setMonth(new Date().getMonth() - 12)));
+  
+  // Set start date to first day of current month, end date to today
+  const getFirstDayOfMonth = () => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  };
+  
+  const [startDate, setStartDate] = useState(getFirstDayOfMonth());
   const [endDate, setEndDate] = useState(new Date());
   const [formats, setFormats] = useState({ csv: true, pdf: false });
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [exporting, setExporting] = useState(false);
+  
+  const formatDate = (dateObj) => {
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  
+  const handleStartDateChange = (event, selectedDate) => {
+    if (Platform.OS !== 'web') {
+      setShowStartPicker(false);
+    }
+    if (selectedDate) {
+      const normalizedDate = new Date(selectedDate);
+      normalizedDate.setHours(0, 0, 0, 0);
+      setStartDate(normalizedDate);
+    }
+  };
+  
+  const handleEndDateChange = (event, selectedDate) => {
+    if (Platform.OS !== 'web') {
+      setShowEndPicker(false);
+    }
+    if (selectedDate) {
+      const normalizedDate = new Date(selectedDate);
+      normalizedDate.setHours(0, 0, 0, 0);
+      setEndDate(normalizedDate);
+    }
+  };
 
   const handleExport = async () => {
     if (startDate > endDate) {
@@ -71,46 +107,80 @@ export default function ExportButton() {
             <View style={styles.section}>
               <Text style={styles.label}>{t('export.dateRange') || 'Date Range'}</Text>
               
-              <TouchableOpacity
-                style={styles.dateButton}
-                onPress={() => setShowStartPicker(true)}
-              >
-                <Text style={styles.dateButtonText}>
-                  {t('export.startDate') || 'Start Date'}: {startDate.toISOString().split('T')[0]}
-                </Text>
-              </TouchableOpacity>
-              
-              {showStartPicker && (
-                <DateTimePicker
-                  value={startDate}
-                  mode="date"
-                  display="default"
-                  onChange={(event, selectedDate) => {
-                    setShowStartPicker(false);
-                    if (selectedDate) setStartDate(selectedDate);
-                  }}
-                />
+              {/* Start Date */}
+              <Text style={styles.dateLabel}>{t('export.startDate') || 'Start Date'}</Text>
+              {Platform.OS === 'web' ? (
+                <View style={{ width: '100%' }}>
+                  {React.createElement('input', {
+                    type: 'date',
+                    value: formatDate(startDate),
+                    onChange: (e) => {
+                      const dateString = e.target.value;
+                      if (dateString) {
+                        const [year, month, day] = dateString.split('-').map(Number);
+                        const newDate = new Date(year, month - 1, day);
+                        newDate.setHours(0, 0, 0, 0);
+                        setStartDate(newDate);
+                      }
+                    },
+                    style: styles.webDateInput,
+                  })}
+                </View>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={styles.dateButton}
+                    onPress={() => setShowStartPicker(true)}
+                  >
+                    <Text style={styles.dateButtonText}>{formatDate(startDate)}</Text>
+                  </TouchableOpacity>
+                  {showStartPicker && (
+                    <DateTimePicker
+                      value={startDate}
+                      mode="date"
+                      display="default"
+                      onChange={handleStartDateChange}
+                    />
+                  )}
+                </>
               )}
               
-              <TouchableOpacity
-                style={styles.dateButton}
-                onPress={() => setShowEndPicker(true)}
-              >
-                <Text style={styles.dateButtonText}>
-                  {t('export.endDate') || 'End Date'}: {endDate.toISOString().split('T')[0]}
-                </Text>
-              </TouchableOpacity>
-              
-              {showEndPicker && (
-                <DateTimePicker
-                  value={endDate}
-                  mode="date"
-                  display="default"
-                  onChange={(event, selectedDate) => {
-                    setShowEndPicker(false);
-                    if (selectedDate) setEndDate(selectedDate);
-                  }}
-                />
+              {/* End Date */}
+              <Text style={styles.dateLabel}>{t('export.endDate') || 'End Date'}</Text>
+              {Platform.OS === 'web' ? (
+                <View style={{ width: '100%' }}>
+                  {React.createElement('input', {
+                    type: 'date',
+                    value: formatDate(endDate),
+                    onChange: (e) => {
+                      const dateString = e.target.value;
+                      if (dateString) {
+                        const [year, month, day] = dateString.split('-').map(Number);
+                        const newDate = new Date(year, month - 1, day);
+                        newDate.setHours(0, 0, 0, 0);
+                        setEndDate(newDate);
+                      }
+                    },
+                    style: styles.webDateInput,
+                  })}
+                </View>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={styles.dateButton}
+                    onPress={() => setShowEndPicker(true)}
+                  >
+                    <Text style={styles.dateButtonText}>{formatDate(endDate)}</Text>
+                  </TouchableOpacity>
+                  {showEndPicker && (
+                    <DateTimePicker
+                      value={endDate}
+                      mode="date"
+                      display="default"
+                      onChange={handleEndDateChange}
+                    />
+                  )}
+                </>
               )}
             </View>
             
@@ -211,6 +281,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1E293B',
     marginBottom: 12,
+  },
+  dateLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1E293B',
+    marginBottom: 8,
+    marginTop: 8,
+  },
+  webDateInput: {
+    width: '100%',
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    fontSize: 16,
+    marginBottom: 8,
   },
   dateButton: {
     borderWidth: 1,
