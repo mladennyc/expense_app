@@ -6,7 +6,7 @@ import { scanReceipt } from '../api';
 import { CATEGORY_KEY_TO_NAME, CATEGORY_NAME_TO_KEY } from './AddExpenseScreen';
 
 export default function ReceiptReviewScreen({ navigation, route }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { imageUri, imageBase64 } = route.params || {};
   
   const [loading, setLoading] = useState(false);
@@ -29,7 +29,7 @@ export default function ReceiptReviewScreen({ navigation, route }) {
     try {
       setLoading(true);
       console.log('Starting receipt scan...');
-      const result = await scanReceipt(imageBase64);
+      const result = await scanReceipt(imageBase64, language);
       console.log('Receipt scan result:', JSON.stringify(result, null, 2));
       
       if (result.success && result.data) {

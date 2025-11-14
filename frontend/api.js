@@ -343,7 +343,7 @@ export async function getNetIncome(month = null) {
 }
 
 // Receipt scanning
-export async function scanReceipt(imageBase64) {
+export async function scanReceipt(imageBase64, language = 'en') {
   const token = await getAuthToken();
   if (!token) {
     throw new Error('Not authenticated. Please login again.');
@@ -357,7 +357,8 @@ export async function scanReceipt(imageBase64) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      image_base64: imageBase64
+      image_base64: imageBase64,
+      language: language
     }),
   });
   

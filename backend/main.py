@@ -483,10 +483,14 @@ async def get_recent_expenses(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get the last 10 expenses for current user sorted by date descending"""
+    """Get all expenses from the past 2 months for current user sorted by date descending"""
+    # Calculate date 2 months ago
+    two_months_ago = date.today() - timedelta(days=60)
+    
     expenses = db.query(ExpenseModel).filter(
-        ExpenseModel.user_id == current_user.id
-    ).order_by(ExpenseModel.date.desc()).limit(10).all()
+        ExpenseModel.user_id == current_user.id,
+        ExpenseModel.date >= two_months_ago
+    ).order_by(ExpenseModel.date.desc()).all()
     
     return [
         Expense(
@@ -809,10 +813,14 @@ async def get_recent_income(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get the last 10 income entries for current user sorted by date descending"""
+    """Get all income entries from the past 2 months for current user sorted by date descending"""
+    # Calculate date 2 months ago
+    two_months_ago = date.today() - timedelta(days=60)
+    
     incomes = db.query(IncomeModel).filter(
-        IncomeModel.user_id == current_user.id
-    ).order_by(IncomeModel.date.desc()).limit(10).all()
+        IncomeModel.user_id == current_user.id,
+        IncomeModel.date >= two_months_ago
+    ).order_by(IncomeModel.date.desc()).all()
     
     return [
         Income(
@@ -1050,6 +1058,7 @@ async def get_net_income(
 # Receipt scanning endpoint - accepts base64 JSON
 class ReceiptScanRequest(BaseModel):
     image_base64: str
+    language: Optional[str] = 'en'  # User's language preference
 
 @app.post("/receipts/scan")
 async def scan_receipt(
@@ -1093,13 +1102,27 @@ async def scan_receipt(
         print(f"OpenAI API key found, length: {len(openai_api_key)}")
         client = OpenAI(api_key=openai_api_key)
         
+        # Language mapping for descriptions
+        language_map = {
+            'en': 'English',
+            'sr': 'Serbian',
+            'es': 'Spanish',
+            'pt': 'Portuguese',
+            'fr': 'French',
+            'de': 'German',
+            'it': 'Italian',
+            'ar': 'Arabic'
+        }
+        user_language = request.language or 'en'
+        description_language = language_map.get(user_language, 'English')
+        
         # Create prompt with categories
         prompt = f"""Extract expense data from this receipt image and return JSON with:
 - amount: numeric value only (float), extract the total amount
 - date: YYYY-MM-DD format (extract from receipt, use today's date {datetime.now().date()} if not found)
 - merchant: store/company name (string, extract from receipt)
 - category: MUST match one of these exactly: {', '.join(CATEGORIES)}. Choose the best match based on merchant name and items purchased. If uncertain, use "Other".
-- description: brief description of purchase (optional, can be null)
+- description: brief description of purchase in {description_language} language (optional, can be null). IMPORTANT: Write the description in {description_language}, not in English.
 
 Return ONLY valid JSON, no other text. Example:
 {{"amount": 45.99, "date": "2024-01-15", "merchant": "Walmart", "category": "Groceries", "description": "Grocery shopping"}}"""
