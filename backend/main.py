@@ -1318,18 +1318,23 @@ async def export_csv(
         # Generate filename
         filename = f"expenses_{start_date}_to_{end_date}.csv"
         
-        # Return CSV file
+        # Return CSV file (encode to bytes for proper download)
         return Response(
-            content=csv_content,
-            media_type="text/csv",
+            content=csv_content.encode('utf-8-sig'),  # UTF-8 with BOM for Excel compatibility
+            media_type="text/csv; charset=utf-8",
             headers={
                 "Content-Disposition": f'attachment; filename="{filename}"'
             }
         )
         
     except ValueError as e:
+        print(f"CSV Export ValueError: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Invalid date format: {str(e)}")
     except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"CSV Export Error: {str(e)}")
+        print(f"Traceback: {error_trace}")
         raise HTTPException(status_code=500, detail=f"Error generating CSV: {str(e)}")
 
 

@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Pressable, Platform, Alert, Modal } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Pressable, Platform, Alert } from 'react-native';
 import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import { 
   getCurrentMonthStats, getRecentExpenses, getMonthlyStats,
   getCurrentMonthIncomeStats, getRecentIncome, getIncomeByMonth,
-  getNetIncome, exportData
+  getNetIncome
 } from '../api';
 import { useCurrency } from '../src/CurrencyProvider';
 import { useLanguage } from '../src/LanguageProvider';
@@ -72,13 +71,6 @@ export default function DashboardScreen({ navigation }) {
   const [netIncome, setNetIncome] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [exportStartDate, setExportStartDate] = useState(new Date(new Date().setMonth(new Date().getMonth() - 12)));
-  const [exportEndDate, setExportEndDate] = useState(new Date());
-  const [exportFormats, setExportFormats] = useState({ csv: true, pdf: false });
-  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
-  const [exporting, setExporting] = useState(false);
 
   // Use useFocusEffect to ensure data refreshes when screen comes into focus
   useFocusEffect(
@@ -167,156 +159,9 @@ export default function DashboardScreen({ navigation }) {
     );
   }
 
-  const handleExport = async () => {
-    if (exportStartDate > exportEndDate) {
-      Alert.alert(t('export.error') || 'Error', t('export.invalidDateRange') || 'Start date must be before end date');
-      return;
-    }
-    
-    const selectedFormats = Object.entries(exportFormats).filter(([_, selected]) => selected).map(([format]) => format);
-    if (selectedFormats.length === 0) {
-      Alert.alert(t('export.error') || 'Error', t('export.selectFormat') || 'Please select at least one format');
-      return;
-    }
-    
-    setExporting(true);
-    try {
-      const results = [];
-      for (const format of selectedFormats) {
-        const result = await exportData(exportStartDate, exportEndDate, format);
-        results.push(result.filename);
-        // Small delay between downloads to avoid browser blocking
-        if (selectedFormats.length > 1 && format !== selectedFormats[selectedFormats.length - 1]) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      }
-      
-      Alert.alert(
-        t('export.success') || 'Success',
-        t('export.downloadStarted') || `Export started. Files: ${results.join(', ')}`
-      );
-      setShowExportModal(false);
-    } catch (error) {
-      Alert.alert(t('export.error') || 'Error', error.message || t('export.failed') || 'Export failed');
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  const renderExportModal = () => (
-    <Modal
-      visible={showExportModal}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={() => setShowExportModal(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>{t('export.title') || 'Export Data'}</Text>
-          
-          {/* Date Range Selection */}
-          <View style={styles.exportSection}>
-            <Text style={styles.exportLabel}>{t('export.dateRange') || 'Date Range'}</Text>
-            
-            <TouchableOpacity
-              style={styles.dateButton}
-              onPress={() => setShowStartDatePicker(true)}
-            >
-              <Text style={styles.dateButtonText}>
-                {t('export.startDate') || 'Start Date'}: {exportStartDate.toISOString().split('T')[0]}
-              </Text>
-            </TouchableOpacity>
-            
-            {showStartDatePicker && (
-              <DateTimePicker
-                value={exportStartDate}
-                mode="date"
-                display="default"
-                onChange={(event, selectedDate) => {
-                  setShowStartDatePicker(false);
-                  if (selectedDate) setExportStartDate(selectedDate);
-                }}
-              />
-            )}
-            
-            <TouchableOpacity
-              style={styles.dateButton}
-              onPress={() => setShowEndDatePicker(true)}
-            >
-              <Text style={styles.dateButtonText}>
-                {t('export.endDate') || 'End Date'}: {exportEndDate.toISOString().split('T')[0]}
-              </Text>
-            </TouchableOpacity>
-            
-            {showEndDatePicker && (
-              <DateTimePicker
-                value={exportEndDate}
-                mode="date"
-                display="default"
-                onChange={(event, selectedDate) => {
-                  setShowEndDatePicker(false);
-                  if (selectedDate) setExportEndDate(selectedDate);
-                }}
-              />
-            )}
-          </View>
-          
-          {/* Format Selection */}
-          <View style={styles.exportSection}>
-            <Text style={styles.exportLabel}>{t('export.format') || 'Format'} {t('export.selectMultiple') || '(Select one or both)'}</Text>
-            <View style={styles.formatButtons}>
-              <TouchableOpacity
-                style={[styles.formatButton, exportFormats.csv && styles.formatButtonActive]}
-                onPress={() => setExportFormats({ ...exportFormats, csv: !exportFormats.csv })}
-              >
-                <Text style={[styles.formatButtonText, exportFormats.csv && styles.formatButtonTextActive]}>
-                  {exportFormats.csv ? '✓ ' : ''}CSV
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.formatButton, exportFormats.pdf && styles.formatButtonActive]}
-                onPress={() => setExportFormats({ ...exportFormats, pdf: !exportFormats.pdf })}
-              >
-                <Text style={[styles.formatButtonText, exportFormats.pdf && styles.formatButtonTextActive]}>
-                  {exportFormats.pdf ? '✓ ' : ''}PDF
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-          
-          {/* Action Buttons */}
-          <View style={styles.modalButtons}>
-            <TouchableOpacity
-              style={[styles.modalButton, styles.modalButtonCancel]}
-              onPress={() => setShowExportModal(false)}
-            >
-              <Text style={styles.modalButtonText}>{t('button.cancel') || 'Cancel'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modalButton, styles.modalButtonExport, exporting && styles.disabledButton]}
-              onPress={handleExport}
-              disabled={exporting}
-            >
-              <Text style={styles.modalButtonText}>
-                {exporting ? (t('export.exporting') || 'Exporting...') : (t('export.export') || 'Export')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
 
   const renderOverviewTab = () => (
     <View>
-      {/* Export Button */}
-      <TouchableOpacity
-        style={styles.exportButton}
-        onPress={() => setShowExportModal(true)}
-      >
-        <Text style={styles.exportButtonText}>📥 {t('export.exportData') || 'Export Data'}</Text>
-      </TouchableOpacity>
-      
       {/* Net Income Card */}
       {netIncome && (
         <Pressable
@@ -584,9 +429,6 @@ export default function DashboardScreen({ navigation }) {
           {activeTab === 'expenses' && renderExpensesTab()}
         </View>
       </ScrollView>
-      
-      {/* Export Modal */}
-      {renderExportModal()}
     </View>
   );
 }
@@ -968,113 +810,5 @@ const styles = StyleSheet.create({
   },
   incomeCategory: {
     color: '#10B981',
-  },
-  exportButton: {
-    backgroundColor: colors.primary,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  exportButtonText: {
-    color: colors.textInverse,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 24,
-    width: '90%',
-    maxWidth: 500,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-    color: colors.textPrimary,
-  },
-  exportSection: {
-    marginBottom: 20,
-  },
-  exportLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 12,
-  },
-  dateButton: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    backgroundColor: '#fff',
-  },
-  dateButtonText: {
-    fontSize: 16,
-    color: colors.textPrimary,
-  },
-  formatButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  formatButton: {
-    flex: 1,
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
-  formatButtonActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary + '10',
-  },
-  formatButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  formatButtonTextActive: {
-    color: colors.primary,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 20,
-  },
-  modalButton: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  modalButtonCancel: {
-    backgroundColor: colors.border,
-  },
-  modalButtonExport: {
-    backgroundColor: colors.primary,
-  },
-  modalButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  disabledButton: {
-    opacity: 0.6,
   },
 });

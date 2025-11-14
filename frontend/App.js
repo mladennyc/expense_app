@@ -10,6 +10,7 @@ import LanguageSelector from './src/LanguageSelector';
 import CurrencySelector from './src/CurrencySelector';
 import LogoutButton from './src/LogoutButton';
 import SettingsButton from './src/SettingsButton';
+import ExportButton from './src/ExportButton';
 import LoginScreen from './screens/LoginScreen';
 import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 import TermsOfServiceScreen from './screens/TermsOfServiceScreen';
@@ -96,6 +97,7 @@ function AppNavigator() {
             headerShown: true,
             headerRight: () => (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <ExportButton />
                 <CurrencySelector />
                 <LanguageSelector />
                 <SettingsButton />
