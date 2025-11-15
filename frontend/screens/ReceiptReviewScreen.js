@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Alert, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Alert, Platform, Image, Modal } from 'react-native';
 import { useLanguage } from '../src/LanguageProvider';
 import { colors } from '../src/colors';
 import { scanReceipt, createExpense, createExpensesBatch } from '../api';
@@ -13,6 +13,8 @@ export default function ReceiptReviewScreen({ navigation, route }) {
   const [saving, setSaving] = useState(false);
   const [extractedData, setExtractedData] = useState(null);
   const [receiptType, setReceiptType] = useState(null); // 'utility' or 'store'
+  const [selectedItemForCategory, setSelectedItemForCategory] = useState(null); // item ID for which category picker is open
+  const [message, setMessage] = useState({ type: null, text: '' });
   
   // For utility receipts (single entry)
   const [utilityFormData, setUtilityFormData] = useState({
@@ -185,12 +187,14 @@ export default function ReceiptReviewScreen({ navigation, route }) {
 
   const handleSaveUtility = async () => {
     if (!utilityFormData.amount || !utilityFormData.date) {
-      Alert.alert(t('receipt.error'), 'Amount and date are required');
+      setMessage({ type: 'error', text: 'Amount and date are required' });
       return;
     }
     
     try {
       setSaving(true);
+      setMessage({ type: null, text: '' });
+      
       await createExpense({
         amount: parseFloat(utilityFormData.amount),
         date: utilityFormData.date,
@@ -198,11 +202,14 @@ export default function ReceiptReviewScreen({ navigation, route }) {
         description: utilityFormData.description || utilityFormData.merchant || null,
       });
       
-      Alert.alert(t('receipt.success'), 'Expense created successfully', [
-        { text: 'OK', onPress: () => navigation.goBack() }
-      ]);
+      setMessage({ type: 'success', text: 'Expense created successfully' });
+      
+      // Navigate back after 1.5 seconds
+      setTimeout(() => {
+        navigation.goBack();
+      }, 1500);
     } catch (error) {
-      Alert.alert(t('receipt.error'), error.message || 'Failed to create expense');
+      setMessage({ type: 'error', text: error.message || 'Failed to create expense' });
     } finally {
       setSaving(false);
     }
@@ -210,34 +217,58 @@ export default function ReceiptReviewScreen({ navigation, route }) {
 
   const handleSaveStore = async () => {
     if (storeData.items.length === 0) {
-      Alert.alert(t('receipt.error'), 'At least one item is required');
+      setMessage({ type: 'error', text: 'At least one item is required' });
       return;
     }
     
     if (!storeData.date) {
-      Alert.alert(t('receipt.error'), 'Date is required');
+      setMessage({ type: 'error', text: 'Date is required' });
       return;
     }
     
     try {
       setSaving(true);
-      const expenses = storeData.items.map(item => {
-        const amount = parseFloat(item.amount || 0) + parseFloat(item.taxShare || 0);
-        return {
-          amount: amount,
-          date: storeData.date,
-          category: item.category ? CATEGORY_KEY_TO_NAME[item.category] : null,
-          description: item.description || null,
-        };
+      setMessage({ type: null, text: '' });
+      
+      // Group items by category and sum amounts
+      const categoryGroups = {};
+      
+      storeData.items.forEach(item => {
+        const category = item.category ? CATEGORY_KEY_TO_NAME[item.category] : 'Other';
+        const itemAmount = parseFloat(item.amount || 0) + parseFloat(item.taxShare || 0);
+        
+        if (!categoryGroups[category]) {
+          categoryGroups[category] = {
+            category: category,
+            totalAmount: 0,
+            descriptions: [],
+          };
+        }
+        
+        categoryGroups[category].totalAmount += itemAmount;
+        if (item.description) {
+          categoryGroups[category].descriptions.push(item.description);
+        }
       });
+      
+      // Create one expense entry per category
+      const expenses = Object.values(categoryGroups).map(group => ({
+        amount: group.totalAmount,
+        date: storeData.date,
+        category: group.category,
+        description: group.descriptions.length > 0 ? group.descriptions.join(', ') : null,
+      }));
       
       await createExpensesBatch(expenses);
       
-      Alert.alert(t('receipt.success'), `${expenses.length} expenses created successfully`, [
-        { text: 'OK', onPress: () => navigation.goBack() }
-      ]);
+      setMessage({ type: 'success', text: `${expenses.length} expense${expenses.length > 1 ? 's' : ''} created successfully` });
+      
+      // Navigate back after 1.5 seconds
+      setTimeout(() => {
+        navigation.goBack();
+      }, 1500);
     } catch (error) {
-      Alert.alert(t('receipt.error'), error.message || 'Failed to create expenses');
+      setMessage({ type: 'error', text: error.message || 'Failed to create expenses' });
     } finally {
       setSaving(false);
     }
@@ -377,7 +408,7 @@ export default function ReceiptReviewScreen({ navigation, route }) {
             
             return (
               <View key={item.id} style={styles.itemRow}>
-                <View style={styles.itemRowContent}>
+                <View style={styles.itemRowTop}>
                   {hasTax ? (
                     <View style={styles.amountRow}>
                       <TextInput
@@ -420,25 +451,24 @@ export default function ReceiptReviewScreen({ navigation, route }) {
                     />
                   )}
                   
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScrollCompact}>
-                    {categoryKeys.map((key) => (
-                      <TouchableOpacity
-                        key={key}
-                        style={[
-                          styles.categoryChipCompact,
-                          item.category === key && styles.categoryChipSelected
-                        ]}
-                        onPress={() => updateStoreItem(item.id, 'category', key)}
-                      >
-                        <Text style={[
-                          styles.categoryChipTextCompact,
-                          item.category === key && styles.categoryChipTextSelected
-                        ]}>
-                          {t(key)}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => removeStoreItem(item.id)}
+                  >
+                    <Text style={styles.deleteButtonText}>🗑️</Text>
+                  </TouchableOpacity>
+                </View>
+                
+                <View style={styles.itemRowBottom}>
+                  <TouchableOpacity
+                    style={styles.categoryButtonCompact}
+                    onPress={() => setSelectedItemForCategory(item.id)}
+                  >
+                    <Text style={[styles.categoryButtonTextCompact, !item.category && styles.placeholderText]}>
+                      {item.category ? t(item.category) : 'Category'}
+                    </Text>
+                    <Text style={styles.arrowCompact}>▼</Text>
+                  </TouchableOpacity>
                   
                   <TextInput
                     style={[styles.compactInput, styles.descriptionInput]}
@@ -446,13 +476,6 @@ export default function ReceiptReviewScreen({ navigation, route }) {
                     onChangeText={(text) => updateStoreItem(item.id, 'description', text)}
                     placeholder="Description"
                   />
-                  
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => removeStoreItem(item.id)}
-                  >
-                    <Text style={styles.deleteButtonText}>🗑️</Text>
-                  </TouchableOpacity>
                 </View>
               </View>
             );
@@ -523,7 +546,16 @@ export default function ReceiptReviewScreen({ navigation, route }) {
           <Text style={styles.loadingText}>{t('receipt.processing')}</Text>
         </View>
       ) : extractedData ? (
-        receiptType === 'store' ? renderStoreReceipt() : renderUtilityReceipt()
+        <>
+          {message.text ? (
+            <View style={[styles.messageContainer, message.type === 'success' ? styles.successMessage : styles.errorMessage]}>
+              <Text style={[styles.messageText, message.type === 'success' ? styles.successMessageText : styles.errorMessageText]}>
+                {message.text}
+              </Text>
+            </View>
+          ) : null}
+          {receiptType === 'store' ? renderStoreReceipt() : renderUtilityReceipt()}
+        </>
       ) : (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{t('receipt.noData')}</Text>
@@ -532,6 +564,47 @@ export default function ReceiptReviewScreen({ navigation, route }) {
           </TouchableOpacity>
         </View>
       )}
+      
+      {/* Category Picker Modal */}
+      <Modal
+        visible={selectedItemForCategory !== null}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setSelectedItemForCategory(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Category</Text>
+              <TouchableOpacity onPress={() => setSelectedItemForCategory(null)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalScrollView}>
+              {categoryKeys.map((key) => {
+                const currentItem = storeData.items.find(item => item.id === selectedItemForCategory);
+                const isSelected = currentItem?.category === key;
+                return (
+                  <TouchableOpacity
+                    key={key}
+                    style={[styles.modalCategoryItem, isSelected && styles.modalCategoryItemSelected]}
+                    onPress={() => {
+                      if (selectedItemForCategory) {
+                        updateStoreItem(selectedItemForCategory, 'category', key);
+                        setSelectedItemForCategory(null);
+                      }
+                    }}
+                  >
+                    <Text style={[styles.modalCategoryText, isSelected && styles.modalCategoryTextSelected]}>
+                      {t(key)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -652,6 +725,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  messageContainer: {
+    padding: 12,
+    borderRadius: 8,
+    margin: 20,
+    marginBottom: 0,
+  },
+  successMessage: {
+    backgroundColor: '#d4edda',
+    borderWidth: 1,
+    borderColor: '#c3e6cb',
+  },
+  errorMessage: {
+    backgroundColor: '#f8d7da',
+    borderWidth: 1,
+    borderColor: '#f5c6cb',
+  },
+  messageText: {
+    fontSize: 14,
+  },
+  successMessageText: {
+    color: '#155724',
+  },
+  errorMessageText: {
+    color: '#721c24',
+  },
   // Compact itemized receipt styles
   itemRow: {
     marginBottom: 12,
@@ -661,10 +759,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  itemRowContent: {
+  itemRowTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  itemRowBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   amountRow: {
     flexDirection: 'row',
@@ -703,30 +807,38 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     minWidth: 60,
   },
-  categoryScrollCompact: {
-    marginHorizontal: 8,
-    maxWidth: 150,
-  },
-  categoryChipCompact: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: colors.background,
+  categoryButtonCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     borderWidth: 1,
     borderColor: colors.border,
-    marginRight: 4,
+    borderRadius: 4,
+    padding: 8,
+    backgroundColor: colors.cardBackground,
+    minWidth: 140,
+    flex: 0,
   },
-  categoryChipTextCompact: {
+  categoryButtonTextCompact: {
+    fontSize: 14,
     color: colors.textPrimary,
+    flex: 1,
+  },
+  placeholderText: {
+    color: colors.textSecondary,
+  },
+  arrowCompact: {
     fontSize: 12,
+    color: colors.textSecondary,
+    marginLeft: 4,
   },
   descriptionInput: {
     flex: 1,
     minWidth: 100,
-    marginHorizontal: 8,
   },
   deleteButton: {
     padding: 4,
+    marginLeft: 8,
   },
   deleteButtonText: {
     fontSize: 18,
@@ -754,5 +866,54 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textPrimary,
     textAlign: 'center',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+    paddingBottom: Platform.OS === 'ios' ? 20 : 0,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.textPrimary,
+  },
+  modalClose: {
+    fontSize: 24,
+    color: colors.textSecondary,
+  },
+  modalScrollView: {
+    maxHeight: 400,
+  },
+  modalCategoryItem: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalCategoryItemSelected: {
+    backgroundColor: colors.primary + '20',
+  },
+  modalCategoryText: {
+    fontSize: 16,
+    color: colors.textPrimary,
+  },
+  modalCategoryTextSelected: {
+    color: colors.primary,
+    fontWeight: '600',
   },
 });
