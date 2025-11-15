@@ -1343,55 +1343,86 @@ async def export_pdf(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Export charts as PDF - one chart per page"""
+    """Export charts as PDF - one chart per page, matching UI exactly"""
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import letter
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Table, TableStyle
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import inch
-    from reportlab.graphics.shapes import Drawing
-    from reportlab.graphics.charts.barcharts import VerticalBarChart, HorizontalBarChart
+    from reportlab.graphics.shapes import Drawing, Rect, String, Group, Line
+    from reportlab.graphics.charts.textlabels import Label
     import io
     from collections import defaultdict
     
     try:
-        # Parse dates
-        start = datetime.strptime(start_date, "%Y-%m-%d").date()
-        end = datetime.strptime(end_date, "%Y-%m-%d").date()
+        # Use last 6 months data (same as UI charts), not date range filter
+        current_date = datetime.now().date()
+        months_data = []
+        income_months_data = []
         
-        if start > end:
-            raise HTTPException(status_code=400, detail="Start date must be before end date")
+        # Get last 6 months including current month (same logic as UI)
+        for i in range(6):
+            if i == 0:
+                # Current month (partial)
+                month_start = date(current_date.year, current_date.month, 1)
+                month_end = current_date
+                month_key = current_date.strftime("%Y-%m")
+            else:
+                # Previous months (full month)
+                if current_date.month - i <= 0:
+                    year = current_date.year - 1
+                    month = current_date.month - i + 12
+                else:
+                    year = current_date.year
+                    month = current_date.month - i
+                
+                month_start = date(year, month, 1)
+                if month == 12:
+                    month_end = date(year + 1, 1, 1) - timedelta(days=1)
+                else:
+                    month_end = date(year, month + 1, 1) - timedelta(days=1)
+                month_key = month_start.strftime("%Y-%m")
+            
+            # Get expenses for this month
+            expenses = db.query(ExpenseModel).filter(
+                ExpenseModel.user_id == current_user.id,
+                ExpenseModel.date >= month_start,
+                ExpenseModel.date <= month_end
+            ).all()
+            
+            # Get income for this month
+            incomes = db.query(IncomeModel).filter(
+                IncomeModel.user_id == current_user.id,
+                IncomeModel.date >= month_start,
+                IncomeModel.date <= month_end
+            ).all()
+            
+            expense_total = sum(e.amount for e in expenses if e.amount)
+            income_total = sum(i.amount for i in incomes if i.amount)
+            
+            months_data.append({
+                "month": month_key,
+                "total": expense_total,
+                "isCurrent": i == 0
+            })
+            
+            income_months_data.append({
+                "month": month_key,
+                "total": income_total,
+                "isCurrent": i == 0
+            })
         
-        # Get expenses and income grouped by month
-        expenses = db.query(ExpenseModel).filter(
-            ExpenseModel.user_id == current_user.id,
-            ExpenseModel.date >= start,
-            ExpenseModel.date <= end
-        ).all()
+        # Reverse to show oldest first (same as UI)
+        months_data.reverse()
+        income_months_data.reverse()
         
-        incomes = db.query(IncomeModel).filter(
-            IncomeModel.user_id == current_user.id,
-            IncomeModel.date >= start,
-            IncomeModel.date <= end
-        ).all()
+        all_months = [m["month"] for m in months_data]
+        expense_totals = [m["total"] for m in months_data]
+        income_totals = [m["total"] for m in income_months_data]
+        net_income_totals = [income_totals[i] - expense_totals[i] for i in range(len(all_months))]
         
-        # Group by month
-        expense_by_month = defaultdict(float)
-        income_by_month = defaultdict(float)
-        
-        for expense in expenses:
-            month_key = expense.date.strftime("%Y-%m")
-            expense_by_month[month_key] += expense.amount or 0
-        
-        for income in incomes:
-            month_key = income.date.strftime("%Y-%m")
-            income_by_month[month_key] += income.amount or 0
-        
-        # Get all months in range, sorted
-        all_months = sorted(set(list(expense_by_month.keys()) + list(income_by_month.keys())))
-        
-        if not all_months:
-            raise HTTPException(status_code=400, detail="No data found for the selected date range")
+        if not all_months or not any(expense_totals) and not any(income_totals):
+            raise HTTPException(status_code=400, detail="No data found")
         
         # Create PDF in memory
         buffer = io.BytesIO()
@@ -1409,115 +1440,229 @@ async def export_pdf(
             alignment=1,  # Center
         )
         
-        # Chart 1: Net Income Chart (Income - Expenses by month)
+        # Helper function to format month label like UI ("Jan 2024")
+        def format_month_label(month_str):
+            try:
+                year, month = month_str.split('-')
+                month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                return f"{month_names[int(month)-1]} {year}"
+            except:
+                return month_str
+        
+        # Helper function to draw bar chart matching UI exactly
+        def draw_bar_chart(data, bar_color, title, has_negative=False):
+            if not data:
+                return None
+            
+            drawing = Drawing(500, 350)
+            chart_width = 450
+            chart_height = 200
+            chart_x = 25
+            chart_y = 100
+            bar_area_height = chart_height
+            num_bars = len(data)
+            bar_width = (chart_width - 40) / num_bars if num_bars > 0 else 30
+            bar_spacing = 10
+            
+            # Calculate max value for scaling
+            max_value = max(max([abs(v) for v in data]), 1) if data else 1
+            has_neg = has_negative and any(v < 0 for v in data)
+            has_pos = any(v > 0 for v in data)
+            zero_line_y = chart_y + (bar_area_height / 2) if (has_neg and has_pos) else chart_y + bar_area_height
+            
+            # Draw zero line if needed
+            if has_neg and has_pos:
+                zero_line = Line(chart_x, zero_line_y, chart_x + chart_width, zero_line_y)
+                zero_line.strokeColor = colors.HexColor('#64748B')
+                zero_line.strokeWidth = 1
+                zero_line.strokeOpacity = 0.3
+                drawing.add(zero_line)
+            
+            # Draw bars and labels
+            for idx, value in enumerate(data):
+                bar_x = chart_x + (idx * (bar_width + bar_spacing)) + 5
+                is_negative = value < 0
+                abs_value = abs(value)
+                bar_height = (abs_value / max_value) * (bar_area_height / 2) if (has_neg and has_pos) else (abs_value / max_value) * bar_area_height
+                bar_height = max(bar_height, 4)
+                
+                # Calculate bar position
+                if is_negative:
+                    bar_y = zero_line_y
+                else:
+                    if has_neg and has_pos:
+                        bar_y = zero_line_y - bar_height
+                    else:
+                        bar_y = zero_line_y - bar_height
+                
+                # Draw bar with rounded corners (approximate with Rect)
+                bar = Rect(bar_x, bar_y, bar_width - 10, bar_height)
+                bar.fillColor = colors.HexColor(bar_color)
+                bar.strokeColor = colors.HexColor(bar_color)
+                bar.strokeWidth = 0
+                drawing.add(bar)
+                
+                # Value label
+                if is_negative:
+                    label_y = bar_y + bar_height + 8
+                    label_color = '#EF4444'
+                else:
+                    label_y = bar_y - 8
+                    label_color = '#1E293B'
+                
+                value_label = String(bar_x + (bar_width - 10) / 2, label_y, f"${abs_value:,.0f}")
+                value_label.fontName = 'Helvetica'
+                value_label.fontSize = 11
+                value_label.fillColor = colors.HexColor(label_color)
+                value_label.textAnchor = 'middle'
+                drawing.add(value_label)
+                
+                # Month label below
+                month_label = String(bar_x + (bar_width - 10) / 2, chart_y - 20, format_month_label(all_months[idx]))
+                month_label.fontName = 'Helvetica'
+                month_label.fontSize = 10
+                month_label.fillColor = colors.HexColor('#64748B')
+                month_label.textAnchor = 'middle'
+                drawing.add(month_label)
+            
+            return drawing
+        
+        # Chart 1: Net Income Chart
         story.append(Paragraph("Net Income by Month", title_style))
-        story.append(Paragraph(f"Period: {start_date} to {end_date}", styles['Normal']))
+        story.append(Paragraph("Last 6 Months", styles['Normal']))
         story.append(Spacer(1, 0.2*inch))
         
-        net_income_data = []
-        month_labels = []
-        for month in all_months:
-            income = income_by_month.get(month, 0)
-            expense = expense_by_month.get(month, 0)
-            net = income - expense
-            net_income_data.append(net)
-            month_labels.append(month)
-        
-        if net_income_data:
-            drawing = Drawing(400, 300)
-            chart = VerticalBarChart()
-            chart.x = 50
-            chart.y = 50
-            chart.width = 300
-            chart.height = 200
-            chart.data = [net_income_data]
-            chart.categoryAxis.categoryNames = [m[-2:] for m in month_labels]  # Show just month part
-            chart.bars[0].fillColor = colors.HexColor('#10B981')  # Green for positive, will need adjustment
-            chart.valueAxis.valueMin = min(min(net_income_data), 0) * 1.1
-            chart.valueAxis.valueMax = max(max(net_income_data), 0) * 1.1
-            drawing.add(chart)
-            story.append(drawing)
+        if net_income_totals:
+            chart_drawing = draw_bar_chart(net_income_totals, '#10B981', "Net Income", has_negative=True)
+            if chart_drawing:
+                story.append(chart_drawing)
         
         story.append(PageBreak())
         
-        # Chart 2: Income Chart by month
+        # Chart 2: Income Chart
         story.append(Paragraph("Income by Month", title_style))
-        story.append(Paragraph(f"Period: {start_date} to {end_date}", styles['Normal']))
+        story.append(Paragraph("Last 6 Months", styles['Normal']))
         story.append(Spacer(1, 0.2*inch))
         
-        income_data = [income_by_month.get(month, 0) for month in all_months]
-        if income_data:
-            drawing = Drawing(400, 300)
-            chart = VerticalBarChart()
-            chart.x = 50
-            chart.y = 50
-            chart.width = 300
-            chart.height = 200
-            chart.data = [income_data]
-            chart.categoryAxis.categoryNames = [m[-2:] for m in month_labels]
-            chart.bars[0].fillColor = colors.HexColor('#10B981')  # Green
-            chart.valueAxis.valueMin = 0
-            chart.valueAxis.valueMax = max(income_data) * 1.1 if income_data else 1
-            drawing.add(chart)
-            story.append(drawing)
+        if income_totals:
+            chart_drawing = draw_bar_chart(income_totals, '#10B981', "Income", has_negative=False)
+            if chart_drawing:
+                story.append(chart_drawing)
         
         story.append(PageBreak())
         
-        # Chart 3: Expenses Chart by month
+        # Chart 3: Expenses Chart
         story.append(Paragraph("Expenses by Month", title_style))
-        story.append(Paragraph(f"Period: {start_date} to {end_date}", styles['Normal']))
+        story.append(Paragraph("Last 6 Months", styles['Normal']))
         story.append(Spacer(1, 0.2*inch))
         
-        expense_data = [expense_by_month.get(month, 0) for month in all_months]
-        if expense_data:
-            drawing = Drawing(400, 300)
-            chart = VerticalBarChart()
-            chart.x = 50
-            chart.y = 50
-            chart.width = 300
-            chart.height = 200
-            chart.data = [expense_data]
-            chart.categoryAxis.categoryNames = [m[-2:] for m in month_labels]
-            chart.bars[0].fillColor = colors.HexColor('#EF4444')  # Red
-            chart.valueAxis.valueMin = 0
-            chart.valueAxis.valueMax = max(expense_data) * 1.1 if expense_data else 1
-            drawing.add(chart)
-            story.append(drawing)
+        if expense_totals:
+            chart_drawing = draw_bar_chart(expense_totals, '#EF4444', "Expenses", has_negative=False)
+            if chart_drawing:
+                story.append(chart_drawing)
         
         story.append(PageBreak())
         
-        # Chart 4: Category Breakdown (aggregated for entire period)
+        # Chart 4: Category Breakdown (current month only, matching UI)
         story.append(Paragraph("Expenses by Category", title_style))
-        story.append(Paragraph(f"Period: {start_date} to {end_date}", styles['Normal']))
+        story.append(Paragraph(f"Current Month: {current_date.strftime('%Y-%m')}", styles['Normal']))
         story.append(Spacer(1, 0.2*inch))
         
-        # Group expenses by category
+        # Get current month expenses (same as UI)
+        current_month_start = date(current_date.year, current_date.month, 1)
+        current_month_end = current_date
+        current_month_expenses = db.query(ExpenseModel).filter(
+            ExpenseModel.user_id == current_user.id,
+            ExpenseModel.date >= current_month_start,
+            ExpenseModel.date <= current_month_end
+        ).all()
+        
+        # Group by category
         category_totals = defaultdict(float)
-        for expense in expenses:
+        for expense in current_month_expenses:
             category = expense.category or "Other"
             category_totals[category] += expense.amount or 0
         
         if category_totals:
-            # Sort by amount descending, take top 10
-            sorted_categories = sorted(category_totals.items(), key=lambda x: x[1], reverse=True)[:10]
-            category_names = [cat[0] for cat in sorted_categories]
-            category_amounts = [cat[1] for cat in sorted_categories]
-            total_expenses = sum(category_amounts)
-            category_percentages = [(amt / total_expenses * 100) if total_expenses > 0 else 0 for amt in category_amounts]
+            total_expenses = sum(category_totals.values())
+            # Sort by amount descending
+            sorted_categories = sorted(category_totals.items(), key=lambda x: x[1], reverse=True)
             
-            # Create horizontal bar chart
-            drawing = Drawing(400, max(300, len(category_names) * 30))
-            chart = HorizontalBarChart()
-            chart.x = 100
-            chart.y = 50
-            chart.width = 250
-            chart.height = max(200, len(category_names) * 25)
-            chart.data = [category_percentages]
-            chart.categoryAxis.categoryNames = [name[:15] for name in category_names]  # Truncate long names
-            chart.bars[0].fillColor = colors.HexColor('#3B82F6')  # Blue
-            chart.valueAxis.valueMin = 0
-            chart.valueAxis.valueMax = 100
-            drawing.add(chart)
+            # Category colors matching UI
+            CATEGORY_COLORS = [
+                '#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6',
+                '#06B6D4', '#EC4899', '#14B8A6', '#F97316', '#84CC16',
+                '#6366F1', '#F43F5E', '#0EA5E9', '#A855F7', '#22C55E', '#EAB308',
+            ]
+            
+            # Draw horizontal bars matching UI exactly
+            drawing = Drawing(500, max(400, len(sorted_categories) * 50 + 100))
+            
+            # Total display at top
+            total_label = String(250, 350, "Total")
+            total_label.fontName = 'Helvetica'
+            total_label.fontSize = 14
+            total_label.fillColor = colors.HexColor('#64748B')
+            total_label.textAnchor = 'middle'
+            drawing.add(total_label)
+            
+            total_amount = String(250, 330, f"${total_expenses:,.2f}")
+            total_amount.fontName = 'Helvetica-Bold'
+            total_amount.fontSize = 24
+            total_amount.fillColor = colors.HexColor('#10B981')
+            total_amount.textAnchor = 'middle'
+            drawing.add(total_amount)
+            
+            # Draw horizontal bars for each category
+            start_y = 300
+            bar_width = 300
+            bar_height = 28
+            for idx, (category, amount) in enumerate(sorted_categories):
+                y_pos = start_y - (idx * 50)
+                percentage = (amount / total_expenses * 100) if total_expenses > 0 else 0
+                color = CATEGORY_COLORS[idx % len(CATEGORY_COLORS)]
+                
+                # Color dot
+                dot = Rect(50, y_pos + 8, 12, 12)
+                dot.fillColor = colors.HexColor(color)
+                dot.strokeColor = colors.HexColor(color)
+                drawing.add(dot)
+                
+                # Category name
+                cat_label = String(70, y_pos + 14, category[:20])
+                cat_label.fontName = 'Helvetica'
+                cat_label.fontSize = 13
+                cat_label.fillColor = colors.HexColor('#1E293B')
+                drawing.add(cat_label)
+                
+                # Bar container background
+                bar_bg = Rect(200, y_pos, bar_width, bar_height)
+                bar_bg.fillColor = colors.HexColor('#E2E8F0')
+                bar_bg.strokeColor = colors.HexColor('#E2E8F0')
+                drawing.add(bar_bg)
+                
+                # Bar fill (percentage)
+                fill_width = (percentage / 100) * bar_width
+                bar_fill = Rect(200, y_pos, fill_width, bar_height)
+                bar_fill.fillColor = colors.HexColor(color)
+                bar_fill.strokeColor = colors.HexColor(color)
+                drawing.add(bar_fill)
+                
+                # Percentage text inside bar
+                if fill_width > 30:
+                    pct_label = String(210, y_pos + 14, f"{percentage:.1f}%")
+                    pct_label.fontName = 'Helvetica-Bold'
+                    pct_label.fontSize = 11
+                    pct_label.fillColor = colors.white
+                    drawing.add(pct_label)
+                
+                # Amount on right
+                amount_label = String(520, y_pos + 14, f"${amount:,.2f}")
+                amount_label.fontName = 'Helvetica'
+                amount_label.fontSize = 13
+                amount_label.fillColor = colors.HexColor('#1E293B')
+                drawing.add(amount_label)
+            
             story.append(drawing)
         
         # Build PDF
