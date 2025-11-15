@@ -16,7 +16,7 @@ export default function ExportButton() {
   
   const [startDate, setStartDate] = useState(getFirstDayOfMonth());
   const [endDate, setEndDate] = useState(new Date());
-  const [formats, setFormats] = useState({ csv: true, pdf: false });
+  const [formats, setFormats] = useState({ csv: true });
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -56,22 +56,10 @@ export default function ExportButton() {
       return;
     }
     
-    const selectedFormats = Object.entries(formats).filter(([_, selected]) => selected).map(([format]) => format);
-    if (selectedFormats.length === 0) {
-      Alert.alert(t('export.error') || 'Error', t('export.selectFormat') || 'Please select at least one format');
-      return;
-    }
-    
     setExporting(true);
     try {
-      const results = [];
-      for (const format of selectedFormats) {
-        const result = await exportData(startDate, endDate, format);
-        results.push(result.filename);
-        if (selectedFormats.length > 1 && format !== selectedFormats[selectedFormats.length - 1]) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      }
+      const result = await exportData(startDate, endDate, 'csv');
+      const results = [result.filename];
       
       Alert.alert(
         t('export.success') || 'Success',
@@ -188,27 +176,6 @@ export default function ExportButton() {
               </View>
             </View>
             
-            <View style={styles.section}>
-              <Text style={styles.label}>{t('export.format') || 'Format'} {t('export.selectMultiple') || '(Select one or both)'}</Text>
-              <View style={styles.formatButtons}>
-                <TouchableOpacity
-                  style={[styles.formatButton, formats.csv && styles.formatButtonActive]}
-                  onPress={() => setFormats({ ...formats, csv: !formats.csv })}
-                >
-                  <Text style={[styles.formatButtonText, formats.csv && styles.formatButtonTextActive]}>
-                    {formats.csv ? '✓ ' : ''}CSV
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.formatButton, formats.pdf && styles.formatButtonActive]}
-                  onPress={() => setFormats({ ...formats, pdf: !formats.pdf })}
-                >
-                  <Text style={[styles.formatButtonText, formats.pdf && styles.formatButtonTextActive]}>
-                    {formats.pdf ? '✓ ' : ''}PDF
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
             
             <View style={styles.modalButtons}>
               <TouchableOpacity

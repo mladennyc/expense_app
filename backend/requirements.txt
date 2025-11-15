@@ -10,4 +10,3 @@ python-multipart
 email-validator
 openai>=1.0.0
 pillow
-reportlab

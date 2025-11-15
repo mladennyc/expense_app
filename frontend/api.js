@@ -404,7 +404,7 @@ export async function exportData(startDate, endDate, format) {
     if (filenameMatch) {
       filename = filenameMatch[1].replace(/^["']|["']$/g, '').trim();
       // Remove any trailing underscores before extension
-      filename = filename.replace(/\.(csv|pdf)_+$/i, (match, ext) => `.${ext}`);
+      filename = filename.replace(/\.csv_+$/i, '.csv');
     }
   }
   
