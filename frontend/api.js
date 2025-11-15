@@ -399,9 +399,12 @@ export async function exportData(startDate, endDate, format) {
   const contentDisposition = response.headers.get('Content-Disposition');
   let filename = `export_${startDateStr}_to_${endDateStr}.${format}`;
   if (contentDisposition) {
-    const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+    // Match filename with or without quotes, extract just the filename
+    const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
     if (filenameMatch) {
-      filename = filenameMatch[1];
+      filename = filenameMatch[1].replace(/^["']|["']$/g, '').trim();
+      // Remove any trailing underscores before extension
+      filename = filename.replace(/\.(csv|pdf)_+$/i, (match, ext) => `.${ext}`);
     }
   }
   

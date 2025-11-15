@@ -108,25 +108,26 @@ export default function ExportButton() {
               <Text style={styles.label}>{t('export.dateRange') || 'Date Range'}</Text>
               
               {/* Start Date */}
-              <Text style={styles.dateLabel}>{t('export.startDate') || 'Start Date'}</Text>
-              {Platform.OS === 'web' ? (
-                <View style={{ width: '100%' }}>
-                  {React.createElement('input', {
-                    type: 'date',
-                    value: formatDate(startDate),
-                    onChange: (e) => {
-                      const dateString = e.target.value;
-                      if (dateString) {
-                        const [year, month, day] = dateString.split('-').map(Number);
-                        const newDate = new Date(year, month - 1, day);
-                        newDate.setHours(0, 0, 0, 0);
-                        setStartDate(newDate);
-                      }
-                    },
-                    style: styles.webDateInput,
-                  })}
-                </View>
-              ) : (
+              <View style={styles.inputContainer}>
+                <Text style={styles.dateLabel}>{t('export.startDate') || 'Start Date'}</Text>
+                {Platform.OS === 'web' ? (
+                  <View style={{ width: '100%' }}>
+                    {React.createElement('input', {
+                      type: 'date',
+                      value: formatDate(startDate),
+                      onChange: (e) => {
+                        const dateString = e.target.value;
+                        if (dateString) {
+                          const [year, month, day] = dateString.split('-').map(Number);
+                          const newDate = new Date(year, month - 1, day);
+                          newDate.setHours(0, 0, 0, 0);
+                          setStartDate(newDate);
+                        }
+                      },
+                      style: styles.webDateInput,
+                    })}
+                  </View>
+                ) : (
                 <>
                   <TouchableOpacity
                     style={styles.dateButton}
@@ -143,28 +144,30 @@ export default function ExportButton() {
                     />
                   )}
                 </>
-              )}
+                )}
+              </View>
               
               {/* End Date */}
-              <Text style={styles.dateLabel}>{t('export.endDate') || 'End Date'}</Text>
-              {Platform.OS === 'web' ? (
-                <View style={{ width: '100%' }}>
-                  {React.createElement('input', {
-                    type: 'date',
-                    value: formatDate(endDate),
-                    onChange: (e) => {
-                      const dateString = e.target.value;
-                      if (dateString) {
-                        const [year, month, day] = dateString.split('-').map(Number);
-                        const newDate = new Date(year, month - 1, day);
-                        newDate.setHours(0, 0, 0, 0);
-                        setEndDate(newDate);
-                      }
-                    },
-                    style: styles.webDateInput,
-                  })}
-                </View>
-              ) : (
+              <View style={styles.inputContainer}>
+                <Text style={styles.dateLabel}>{t('export.endDate') || 'End Date'}</Text>
+                {Platform.OS === 'web' ? (
+                  <View style={{ width: '100%' }}>
+                    {React.createElement('input', {
+                      type: 'date',
+                      value: formatDate(endDate),
+                      onChange: (e) => {
+                        const dateString = e.target.value;
+                        if (dateString) {
+                          const [year, month, day] = dateString.split('-').map(Number);
+                          const newDate = new Date(year, month - 1, day);
+                          newDate.setHours(0, 0, 0, 0);
+                          setEndDate(newDate);
+                        }
+                      },
+                      style: styles.webDateInput,
+                    })}
+                  </View>
+                ) : (
                 <>
                   <TouchableOpacity
                     style={styles.dateButton}
@@ -181,7 +184,8 @@ export default function ExportButton() {
                     />
                   )}
                 </>
-              )}
+                )}
+              </View>
             </View>
             
             <View style={styles.section}>
@@ -265,6 +269,8 @@ const styles = StyleSheet.create({
     padding: 24,
     width: '90%',
     maxWidth: 500,
+    maxHeight: '90%',
+    overflow: 'scroll',
   },
   modalTitle: {
     fontSize: 24,
@@ -275,6 +281,10 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 20,
+  },
+  inputContainer: {
+    marginBottom: 16,
+    width: '100%',
   },
   label: {
     fontSize: 16,
@@ -292,11 +302,10 @@ const styles = StyleSheet.create({
   webDateInput: {
     width: '100%',
     padding: 12,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
     fontSize: 16,
-    marginBottom: 8,
+    border: '1px solid #ddd',
+    borderRadius: 8,
+    boxSizing: 'border-box',
   },
   dateButton: {
     borderWidth: 1,
