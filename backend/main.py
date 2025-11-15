@@ -1343,13 +1343,16 @@ async def export_pdf(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Export expenses and income as PDF with charts"""
+    """Export charts as PDF - one chart per page"""
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import letter
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import inch
+    from reportlab.graphics.shapes import Drawing
+    from reportlab.graphics.charts.barcharts import VerticalBarChart, HorizontalBarChart
     import io
+    from collections import defaultdict
     
     try:
         # Parse dates
@@ -1359,24 +1362,36 @@ async def export_pdf(
         if start > end:
             raise HTTPException(status_code=400, detail="Start date must be before end date")
         
-        # Get expenses
+        # Get expenses and income grouped by month
         expenses = db.query(ExpenseModel).filter(
             ExpenseModel.user_id == current_user.id,
             ExpenseModel.date >= start,
             ExpenseModel.date <= end
-        ).order_by(ExpenseModel.date.desc()).all()
+        ).all()
         
-        # Get income
         incomes = db.query(IncomeModel).filter(
             IncomeModel.user_id == current_user.id,
             IncomeModel.date >= start,
             IncomeModel.date <= end
-        ).order_by(IncomeModel.date.desc()).all()
+        ).all()
         
-        # Calculate totals
-        total_expenses = sum(e.amount for e in expenses if e.amount)
-        total_income = sum(i.amount for i in incomes if i.amount)
-        net_income = total_income - total_expenses
+        # Group by month
+        expense_by_month = defaultdict(float)
+        income_by_month = defaultdict(float)
+        
+        for expense in expenses:
+            month_key = expense.date.strftime("%Y-%m")
+            expense_by_month[month_key] += expense.amount or 0
+        
+        for income in incomes:
+            month_key = income.date.strftime("%Y-%m")
+            income_by_month[month_key] += income.amount or 0
+        
+        # Get all months in range, sorted
+        all_months = sorted(set(list(expense_by_month.keys()) + list(income_by_month.keys())))
+        
+        if not all_months:
+            raise HTTPException(status_code=400, detail="No data found for the selected date range")
         
         # Create PDF in memory
         buffer = io.BytesIO()
@@ -1384,92 +1399,126 @@ async def export_pdf(
         story = []
         styles = getSampleStyleSheet()
         
-        # Title
+        # Title style
         title_style = ParagraphStyle(
             'CustomTitle',
             parent=styles['Heading1'],
             fontSize=24,
             textColor=colors.HexColor('#007AFF'),
-            spaceAfter=30,
+            spaceAfter=20,
+            alignment=1,  # Center
         )
-        story.append(Paragraph("Expense Report", title_style))
         
-        # Date range
+        # Chart 1: Net Income Chart (Income - Expenses by month)
+        story.append(Paragraph("Net Income by Month", title_style))
         story.append(Paragraph(f"Period: {start_date} to {end_date}", styles['Normal']))
-        story.append(Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal']))
-        story.append(Spacer(1, 0.3*inch))
+        story.append(Spacer(1, 0.2*inch))
         
-        # Summary section
-        story.append(Paragraph("Summary", styles['Heading2']))
-        summary_data = [
-            ['Total Income', f"${total_income:,.2f}"],
-            ['Total Expenses', f"${total_expenses:,.2f}"],
-            ['Net Income', f"${net_income:,.2f}"]
-        ]
-        summary_table = Table(summary_data, colWidths=[3*inch, 2*inch])
-        summary_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 14),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-        story.append(summary_table)
-        story.append(Spacer(1, 0.3*inch))
+        net_income_data = []
+        month_labels = []
+        for month in all_months:
+            income = income_by_month.get(month, 0)
+            expense = expense_by_month.get(month, 0)
+            net = income - expense
+            net_income_data.append(net)
+            month_labels.append(month)
         
-        # Expenses section
-        if expenses:
-            story.append(Paragraph("Expenses", styles['Heading2']))
-            expense_data = [['Date', 'Amount', 'Category', 'Description']]
-            for expense in expenses:
-                expense_data.append([
-                    expense.date.isoformat() if expense.date else '',
-                    f"${expense.amount:,.2f}" if expense.amount else '',
-                    expense.category if expense.category else '',
-                    expense.description if expense.description else ''
-                ])
-            expense_table = Table(expense_data, colWidths=[1*inch, 1*inch, 1.5*inch, 3.5*inch])
-            expense_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                ('FONTSIZE', (0, 1), (-1, -1), 8),
-            ]))
-            story.append(expense_table)
-            story.append(Spacer(1, 0.3*inch))
+        if net_income_data:
+            drawing = Drawing(400, 300)
+            chart = VerticalBarChart()
+            chart.x = 50
+            chart.y = 50
+            chart.width = 300
+            chart.height = 200
+            chart.data = [net_income_data]
+            chart.categoryAxis.categoryNames = [m[-2:] for m in month_labels]  # Show just month part
+            chart.bars[0].fillColor = colors.HexColor('#10B981')  # Green for positive, will need adjustment
+            chart.valueAxis.valueMin = min(min(net_income_data), 0) * 1.1
+            chart.valueAxis.valueMax = max(max(net_income_data), 0) * 1.1
+            drawing.add(chart)
+            story.append(drawing)
         
-        # Income section
-        if incomes:
-            story.append(Paragraph("Income", styles['Heading2']))
-            income_data = [['Date', 'Amount', 'Category', 'Description']]
-            for income in incomes:
-                income_data.append([
-                    income.date.isoformat() if income.date else '',
-                    f"${income.amount:,.2f}" if income.amount else '',
-                    income.category if income.category else '',
-                    income.description if income.description else ''
-                ])
-            income_table = Table(income_data, colWidths=[1*inch, 1*inch, 1.5*inch, 3.5*inch])
-            income_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                ('FONTSIZE', (0, 1), (-1, -1), 8),
-            ]))
-            story.append(income_table)
+        story.append(PageBreak())
+        
+        # Chart 2: Income Chart by month
+        story.append(Paragraph("Income by Month", title_style))
+        story.append(Paragraph(f"Period: {start_date} to {end_date}", styles['Normal']))
+        story.append(Spacer(1, 0.2*inch))
+        
+        income_data = [income_by_month.get(month, 0) for month in all_months]
+        if income_data:
+            drawing = Drawing(400, 300)
+            chart = VerticalBarChart()
+            chart.x = 50
+            chart.y = 50
+            chart.width = 300
+            chart.height = 200
+            chart.data = [income_data]
+            chart.categoryAxis.categoryNames = [m[-2:] for m in month_labels]
+            chart.bars[0].fillColor = colors.HexColor('#10B981')  # Green
+            chart.valueAxis.valueMin = 0
+            chart.valueAxis.valueMax = max(income_data) * 1.1 if income_data else 1
+            drawing.add(chart)
+            story.append(drawing)
+        
+        story.append(PageBreak())
+        
+        # Chart 3: Expenses Chart by month
+        story.append(Paragraph("Expenses by Month", title_style))
+        story.append(Paragraph(f"Period: {start_date} to {end_date}", styles['Normal']))
+        story.append(Spacer(1, 0.2*inch))
+        
+        expense_data = [expense_by_month.get(month, 0) for month in all_months]
+        if expense_data:
+            drawing = Drawing(400, 300)
+            chart = VerticalBarChart()
+            chart.x = 50
+            chart.y = 50
+            chart.width = 300
+            chart.height = 200
+            chart.data = [expense_data]
+            chart.categoryAxis.categoryNames = [m[-2:] for m in month_labels]
+            chart.bars[0].fillColor = colors.HexColor('#EF4444')  # Red
+            chart.valueAxis.valueMin = 0
+            chart.valueAxis.valueMax = max(expense_data) * 1.1 if expense_data else 1
+            drawing.add(chart)
+            story.append(drawing)
+        
+        story.append(PageBreak())
+        
+        # Chart 4: Category Breakdown (aggregated for entire period)
+        story.append(Paragraph("Expenses by Category", title_style))
+        story.append(Paragraph(f"Period: {start_date} to {end_date}", styles['Normal']))
+        story.append(Spacer(1, 0.2*inch))
+        
+        # Group expenses by category
+        category_totals = defaultdict(float)
+        for expense in expenses:
+            category = expense.category or "Other"
+            category_totals[category] += expense.amount or 0
+        
+        if category_totals:
+            # Sort by amount descending, take top 10
+            sorted_categories = sorted(category_totals.items(), key=lambda x: x[1], reverse=True)[:10]
+            category_names = [cat[0] for cat in sorted_categories]
+            category_amounts = [cat[1] for cat in sorted_categories]
+            total_expenses = sum(category_amounts)
+            category_percentages = [(amt / total_expenses * 100) if total_expenses > 0 else 0 for amt in category_amounts]
+            
+            # Create horizontal bar chart
+            drawing = Drawing(400, max(300, len(category_names) * 30))
+            chart = HorizontalBarChart()
+            chart.x = 100
+            chart.y = 50
+            chart.width = 250
+            chart.height = max(200, len(category_names) * 25)
+            chart.data = [category_percentages]
+            chart.categoryAxis.categoryNames = [name[:15] for name in category_names]  # Truncate long names
+            chart.bars[0].fillColor = colors.HexColor('#3B82F6')  # Blue
+            chart.valueAxis.valueMin = 0
+            chart.valueAxis.valueMax = 100
+            drawing.add(chart)
+            story.append(drawing)
         
         # Build PDF
         doc.build(story)
@@ -1490,4 +1539,8 @@ async def export_pdf(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid date format: {str(e)}")
     except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"PDF Export Error: {str(e)}")
+        print(f"Traceback: {error_trace}")
         raise HTTPException(status_code=500, detail=f"Error generating PDF: {str(e)}")
