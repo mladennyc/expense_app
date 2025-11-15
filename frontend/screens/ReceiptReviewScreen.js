@@ -752,7 +752,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    flexWrap: 'wrap',
+    width: '100%',
   },
   amountRow: {
     flexDirection: 'row',
@@ -817,8 +817,8 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   descriptionInputNarrow: {
-    width: 80,
-    maxWidth: 80,
+    flex: 1,
+    minWidth: 80,
   },
   deleteButton: {
     padding: 4,
