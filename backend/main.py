@@ -479,6 +479,48 @@ async def create_expense(
     )
 
 
+class ExpenseBatchIn(BaseModel):
+    expenses: list[ExpenseIn]
+
+
+@app.post("/expenses/batch", response_model=list[Expense])
+async def create_expenses_batch(
+    batch: ExpenseBatchIn,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create multiple expenses at once (requires authentication)"""
+    created_expenses = []
+    
+    for expense in batch.expenses:
+        db_expense = ExpenseModel(
+            user_id=current_user.id,
+            amount=expense.amount,
+            date=expense.date,
+            category=expense.category,
+            description=expense.description
+        )
+        db.add(db_expense)
+        created_expenses.append(db_expense)
+    
+    db.commit()
+    
+    # Refresh all expenses
+    for db_expense in created_expenses:
+        db.refresh(db_expense)
+    
+    return [
+        Expense(
+            id=e.id,
+            amount=e.amount,
+            date=e.date,
+            category=e.category,
+            description=e.description
+        )
+        for e in created_expenses
+    ]
+
+
 @app.get("/expenses/recent", response_model=List[Expense])
 async def get_recent_expenses(
     current_user: User = Depends(get_current_user),
@@ -1073,9 +1115,10 @@ async def scan_receipt(
     
     # Your app's category list
     CATEGORIES = [
-        "Groceries", "Utilities", "Transportation", "Housing",
-        "Healthcare", "Education", "Entertainment", "Dining Out",
-        "Clothing", "Personal Care", "Gifts & Donations", "Travel",
+        "Groceries", "Utilities", "Transportation", "Housing", "Home Maintenance",
+        "Healthcare", "Education", "Childcare", "Entertainment", "Subscriptions",
+        "Dining Out", "Clothing", "Personal Care", "Fitness & Sports",
+        "Household Supplies", "Pet Care", "Gifts & Donations", "Travel",
         "Loans & Debt Payments", "Bank Fees", "Insurance", "Taxes", "Other"
     ]
     
@@ -1123,19 +1166,30 @@ async def scan_receipt(
             serbian_note = " IMPORTANT: For Serbian, use Latin script (not Cyrillic). Use letters like a, b, c, d, e, etc., not Cyrillic characters."
         
         # Create prompt with categories
-        prompt = f"""Extract expense data from this receipt image and return JSON with:
-- amount: numeric value only (float), extract the total amount
-- date: YYYY-MM-DD format (extract from receipt, use today's date {datetime.now().date()} if not found)
-- merchant: store/company name (string, can be null). IMPORTANT: Only extract the merchant name if it is clearly visible on the receipt. Do NOT guess, assume, or infer the merchant name based on items or your knowledge. If the merchant name is not clearly visible on the receipt, set this to null.
-- category: MUST match one of these exactly: {', '.join(CATEGORIES)}. Choose the best match based on items purchased visible on the receipt. If uncertain, use "Other".
-- description: brief description of purchase in {description_language} language (optional, can be null). IMPORTANT: Write the description in {description_language}, not in English.{serbian_note}
+        prompt = f"""Extract expense data from this receipt image. First, determine if this is a UTILITY/BILL receipt (electric, phone, internet, water, gas) or a STORE receipt (grocery, retail, etc.).
 
-CRITICAL: Only extract information that is actually visible on the receipt. Do NOT use your knowledge or make assumptions. If something is not clearly visible, set it to null.
+For UTILITY/BILL receipts (electric, phone, internet, water, gas companies):
+- Return single entry format with receipt_type: "utility"
+- category should be "Utilities"
+- Return: {{"receipt_type": "utility", "amount": 150.00, "date": "2024-01-15", "merchant": "Electric Company", "category": "Utilities", "description": "Electric bill"}}
 
-Return ONLY valid JSON, no other text. Example:
-{{"amount": 45.99, "date": "2024-01-15", "merchant": "Walmart", "category": "Groceries", "description": "Grocery shopping"}}
-Example with missing merchant:
-{{"amount": 45.99, "date": "2024-01-15", "merchant": null, "category": "Groceries", "description": "Grocery shopping"}}"""
+For STORE receipts (grocery stores, retail shops, supermarkets):
+- Return itemized format with receipt_type: "store"
+- Extract each item with its price, category, and description
+- Extract tax amount if present
+- Return: {{"receipt_type": "store", "date": "2024-01-15", "merchant": "Walmart", "items": [{{"amount": 10.00, "category": "Groceries", "description": "Milk, bread"}}, {{"amount": 20.00, "category": "Household Supplies", "description": "Cleaning products"}}], "tax": 1.80, "subtotal": 30.00, "total": 31.80}}
+
+Categories available: {', '.join(CATEGORIES)}
+
+IMPORTANT RULES:
+- merchant: Only extract if clearly visible. Do NOT guess or infer. Set to null if not visible.
+- For store receipts: Each item's category MUST match one of the available categories exactly
+- For store receipts: Extract tax amount if visible (can be 0 or null if no tax)
+- date: YYYY-MM-DD format (use today {datetime.now().date()} if not found)
+- description: Write in {description_language}, not English.{serbian_note}
+- Only extract information actually visible on receipt. Do NOT use your knowledge or make assumptions.
+
+Return ONLY valid JSON, no other text."""
 
         # Call GPT-4 Turbo with vision
         print("Calling OpenAI API...")
@@ -1188,52 +1242,106 @@ Example with missing merchant:
             print(f"Failed to parse JSON: {response.choices[0].message.content}")
             raise
         
-        # Validate and clean up result
-        extracted_data = {
-            "amount": result.get("amount"),
-            "date": result.get("date"),
-            "merchant": result.get("merchant"),
-            "category": result.get("category"),
-            "description": result.get("description")
-        }
+        # Determine receipt type
+        receipt_type = result.get("receipt_type", "utility")  # Default to utility for backward compatibility
         
-        print(f"Raw extracted data from OpenAI: {extracted_data}")
-        
-        # Validate category is in list
-        if extracted_data["category"] and extracted_data["category"] not in CATEGORIES:
-            print(f"Category '{extracted_data['category']}' not in list, setting to None")
-            extracted_data["category"] = None
-        
-        # Validate amount
-        if extracted_data["amount"]:
-            try:
-                extracted_data["amount"] = float(extracted_data["amount"])
-            except (ValueError, TypeError):
-                print(f"Invalid amount: {extracted_data['amount']}")
-                extracted_data["amount"] = None
-        else:
-            print("No amount extracted")
+        print(f"Receipt type: {receipt_type}")
+        print(f"Raw extracted data from OpenAI: {result}")
         
         # Validate date format - always provide a date
-        if extracted_data["date"]:
+        date = result.get("date")
+        if date:
             try:
-                # Try to parse date
-                datetime.strptime(extracted_data["date"], "%Y-%m-%d")
+                datetime.strptime(date, "%Y-%m-%d")
             except (ValueError, TypeError):
-                # Use today if invalid
-                print(f"Invalid date format: {extracted_data['date']}, using today")
-                extracted_data["date"] = datetime.now().date().isoformat()
+                date = datetime.now().date().isoformat()
+                print(f"Invalid date format, using today")
         else:
-            # If no date, use today
-            extracted_data["date"] = datetime.now().date().isoformat()
+            date = datetime.now().date().isoformat()
             print("No date extracted, using today")
+        
+        if receipt_type == "store":
+            # Handle itemized store receipt
+            items = result.get("items", [])
+            tax = result.get("tax") or 0
+            subtotal = result.get("subtotal") or 0
+            total = result.get("total") or 0
+            merchant = result.get("merchant")
+            
+            # Validate and clean items
+            validated_items = []
+            for item in items:
+                item_amount = item.get("amount")
+                item_category = item.get("category")
+                item_description = item.get("description", "")
+                
+                # Validate amount
+                try:
+                    item_amount = float(item_amount) if item_amount else 0
+                except (ValueError, TypeError):
+                    print(f"Invalid item amount: {item_amount}, skipping")
+                    continue
+                
+                # Validate category
+                if item_category and item_category not in CATEGORIES:
+                    print(f"Category '{item_category}' not in list, setting to 'Other'")
+                    item_category = "Other"
+                
+                validated_items.append({
+                    "amount": item_amount,
+                    "category": item_category or "Other",
+                    "description": item_description
+                })
+            
+            # Validate tax
+            try:
+                tax = float(tax) if tax else 0
+            except (ValueError, TypeError):
+                tax = 0
+            
+            extracted_data = {
+                "receipt_type": "store",
+                "date": date,
+                "merchant": merchant,
+                "items": validated_items,
+                "tax": tax,
+                "subtotal": subtotal,
+                "total": total
+            }
+        else:
+            # Handle utility/bill receipt (single entry)
+            amount = result.get("amount")
+            merchant = result.get("merchant")
+            category = result.get("category", "Utilities")
+            description = result.get("description", "")
+            
+            # Validate category
+            if category and category not in CATEGORIES:
+                print(f"Category '{category}' not in list, setting to 'Utilities'")
+                category = "Utilities"
+            
+            # Validate amount
+            try:
+                amount = float(amount) if amount else None
+            except (ValueError, TypeError):
+                print(f"Invalid amount: {amount}")
+                amount = None
+            
+            extracted_data = {
+                "receipt_type": "utility",
+                "amount": amount,
+                "date": date,
+                "merchant": merchant,
+                "category": category,
+                "description": description
+            }
         
         print(f"Final extracted data: {extracted_data}")
         
         return {
             "success": True,
             "data": extracted_data,
-            "confidence": "high"  # GPT-4 Turbo is generally reliable
+            "confidence": "high"
         }
         
     except json.JSONDecodeError as e:

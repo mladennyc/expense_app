@@ -213,6 +213,24 @@ export async function createExpense(data) {
   }
 }
 
+export async function createExpensesBatch(expenses) {
+  console.log('createExpensesBatch: Sending data:', JSON.stringify(expenses));
+  const response = await authenticatedFetch(`${BASE_URL}/expenses/batch`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ expenses }),
+  });
+  try {
+    const result = await response.json();
+    return normalizeBooleans(result);
+  } catch (error) {
+    console.error('createExpensesBatch: Error parsing JSON response:', error);
+    throw new Error(error && error.message ? error.message : 'Failed to create expenses');
+  }
+}
+
 export async function getExpense(expenseId) {
   const response = await authenticatedFetch(`${BASE_URL}/expenses/${expenseId}`);
   const data = await response.json();
