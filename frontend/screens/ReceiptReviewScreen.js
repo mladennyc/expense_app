@@ -204,10 +204,11 @@ export default function ReceiptReviewScreen({ navigation, route }) {
       
       setMessage({ type: 'success', text: 'Expense created successfully' });
       
-      // Navigate back after 1.5 seconds
+      // Navigate to AddExpense after 2 seconds (give time to see message)
       setTimeout(() => {
-        navigation.goBack();
-      }, 1500);
+        setMessage({ type: null, text: '' });
+        navigation.navigate('AddExpense');
+      }, 2000);
     } catch (error) {
       setMessage({ type: 'error', text: error.message || 'Failed to create expense' });
     } finally {
@@ -263,10 +264,11 @@ export default function ReceiptReviewScreen({ navigation, route }) {
       
       setMessage({ type: 'success', text: `${expenses.length} expense${expenses.length > 1 ? 's' : ''} created successfully` });
       
-      // Navigate back after 1.5 seconds
+      // Navigate to AddExpense after 2 seconds (give time to see message)
       setTimeout(() => {
-        navigation.goBack();
-      }, 1500);
+        setMessage({ type: null, text: '' });
+        navigation.navigate('AddExpense');
+      }, 2000);
     } catch (error) {
       setMessage({ type: 'error', text: error.message || 'Failed to create expenses' });
     } finally {
@@ -408,7 +410,7 @@ export default function ReceiptReviewScreen({ navigation, route }) {
             
             return (
               <View key={item.id} style={styles.itemRow}>
-                <View style={styles.itemRowTop}>
+                <View style={styles.itemRowSingle}>
                   {hasTax ? (
                     <View style={styles.amountRow}>
                       <TextInput
@@ -452,30 +454,28 @@ export default function ReceiptReviewScreen({ navigation, route }) {
                   )}
                   
                   <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => removeStoreItem(item.id)}
-                  >
-                    <Text style={styles.deleteButtonText}>🗑️</Text>
-                  </TouchableOpacity>
-                </View>
-                
-                <View style={styles.itemRowBottom}>
-                  <TouchableOpacity
                     style={styles.categoryButtonCompact}
                     onPress={() => setSelectedItemForCategory(item.id)}
                   >
-                    <Text style={[styles.categoryButtonTextCompact, !item.category && styles.placeholderText]}>
+                    <Text style={[styles.categoryButtonTextCompact, !item.category && styles.placeholderText]} numberOfLines={1}>
                       {item.category ? t(item.category) : 'Category'}
                     </Text>
                     <Text style={styles.arrowCompact}>▼</Text>
                   </TouchableOpacity>
                   
                   <TextInput
-                    style={[styles.compactInput, styles.descriptionInput]}
+                    style={[styles.compactInput, styles.descriptionInputNarrow]}
                     value={item.description}
                     onChangeText={(text) => updateStoreItem(item.id, 'description', text)}
-                    placeholder="Description"
+                    placeholder="Desc"
                   />
+                  
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => removeStoreItem(item.id)}
+                  >
+                    <Text style={styles.deleteButtonText}>🗑️</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             );
@@ -546,16 +546,7 @@ export default function ReceiptReviewScreen({ navigation, route }) {
           <Text style={styles.loadingText}>{t('receipt.processing')}</Text>
         </View>
       ) : extractedData ? (
-        <>
-          {message.text ? (
-            <View style={[styles.messageContainer, message.type === 'success' ? styles.successMessage : styles.errorMessage]}>
-              <Text style={[styles.messageText, message.type === 'success' ? styles.successMessageText : styles.errorMessageText]}>
-                {message.text}
-              </Text>
-            </View>
-          ) : null}
-          {receiptType === 'store' ? renderStoreReceipt() : renderUtilityReceipt()}
-        </>
+        receiptType === 'store' ? renderStoreReceipt() : renderUtilityReceipt()
       ) : (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{t('receipt.noData')}</Text>
@@ -564,6 +555,26 @@ export default function ReceiptReviewScreen({ navigation, route }) {
           </TouchableOpacity>
         </View>
       )}
+      
+      {/* Success/Error Message Modal */}
+      <Modal
+        visible={message.text !== ''}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setMessage({ type: null, text: '' })}
+      >
+        <View style={styles.messageModalOverlay}>
+          <View style={[styles.messageModalContent, message.type === 'success' ? styles.messageModalSuccess : styles.messageModalError]}>
+            <Text style={styles.messageModalText}>{message.text}</Text>
+            <TouchableOpacity
+              style={styles.messageModalButton}
+              onPress={() => setMessage({ type: null, text: '' })}
+            >
+              <Text style={styles.messageModalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
       
       {/* Category Picker Modal */}
       <Modal
@@ -695,6 +706,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 20,
+    alignSelf: 'center',
+    minWidth: 200,
+    maxWidth: 300,
   },
   disabledButton: {
     opacity: 0.6,
@@ -725,31 +739,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  messageContainer: {
-    padding: 12,
-    borderRadius: 8,
-    margin: 20,
-    marginBottom: 0,
-  },
-  successMessage: {
-    backgroundColor: '#d4edda',
-    borderWidth: 1,
-    borderColor: '#c3e6cb',
-  },
-  errorMessage: {
-    backgroundColor: '#f8d7da',
-    borderWidth: 1,
-    borderColor: '#f5c6cb',
-  },
-  messageText: {
-    fontSize: 14,
-  },
-  successMessageText: {
-    color: '#155724',
-  },
-  errorMessageText: {
-    color: '#721c24',
-  },
   // Compact itemized receipt styles
   itemRow: {
     marginBottom: 12,
@@ -759,16 +748,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  itemRowTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  itemRowBottom: {
+  itemRowSingle: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexWrap: 'wrap',
   },
   amountRow: {
     flexDirection: 'row',
@@ -816,8 +800,8 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     padding: 8,
     backgroundColor: colors.cardBackground,
-    minWidth: 140,
-    flex: 0,
+    minWidth: 120,
+    maxWidth: 120,
   },
   categoryButtonTextCompact: {
     fontSize: 14,
@@ -832,9 +816,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginLeft: 4,
   },
-  descriptionInput: {
-    flex: 1,
-    minWidth: 100,
+  descriptionInputNarrow: {
+    width: 80,
+    maxWidth: 80,
   },
   deleteButton: {
     padding: 4,
@@ -849,6 +833,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 8,
+    alignSelf: 'center',
+    minWidth: 150,
+    maxWidth: 200,
   },
   addButtonText: {
     color: '#fff',
@@ -915,5 +902,52 @@ const styles = StyleSheet.create({
   modalCategoryTextSelected: {
     color: colors.primary,
     fontWeight: '600',
+  },
+  // Message Modal styles
+  messageModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  messageModalContent: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 24,
+    minWidth: 280,
+    maxWidth: 320,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  messageModalSuccess: {
+    borderWidth: 2,
+    borderColor: '#c3e6cb',
+  },
+  messageModalError: {
+    borderWidth: 2,
+    borderColor: '#f5c6cb',
+  },
+  messageModalText: {
+    fontSize: 16,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  messageModalButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 8,
+    minWidth: 100,
+  },
+  messageModalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
