@@ -72,12 +72,24 @@ export default function ReceiptReviewScreen({ navigation, route }) {
           // Calculate tax distribution
           const tax = parseFloat(data.tax || 0);
           const subtotal = items.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
+          const total = parseFloat(data.total || subtotal + tax);
           
-          if (tax > 0 && subtotal > 0) {
+          // Check if tax is added on top (US) or included in price (Serbia)
+          // If subtotal + tax ≈ total, tax is added (US style)
+          // If subtotal ≈ total, tax is included (Serbia style)
+          const taxAddedOnTop = Math.abs((subtotal + tax) - total) < 0.01;
+          
+          if (tax > 0 && subtotal > 0 && taxAddedOnTop) {
+            // US style: tax is added on top, distribute it proportionally
             items.forEach(item => {
               const itemAmount = parseFloat(item.amount || 0);
               const taxShare = (itemAmount / subtotal) * tax;
               item.taxShare = taxShare.toFixed(2);
+            });
+          } else {
+            // Serbia style: tax is already included in prices, don't add it
+            items.forEach(item => {
+              item.taxShare = '0';
             });
           }
           
@@ -87,7 +99,7 @@ export default function ReceiptReviewScreen({ navigation, route }) {
             items: items,
             tax: String(tax),
             subtotal: String(subtotal),
-            total: String(data.total || subtotal + tax),
+            total: String(total),
           });
         } else {
           // Handle utility receipt
@@ -114,15 +126,23 @@ export default function ReceiptReviewScreen({ navigation, route }) {
     }
   };
 
-  const calculateTaxDistribution = (items, tax) => {
+  const calculateTaxDistribution = (items, tax, total) => {
     const subtotal = items.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
-    if (tax > 0 && subtotal > 0) {
+    
+    // Check if tax is added on top (US) or included in price (Serbia)
+    // If subtotal + tax ≈ total, tax is added (US style)
+    // If subtotal ≈ total, tax is included (Serbia style)
+    const taxAddedOnTop = Math.abs((subtotal + tax) - total) < 0.01;
+    
+    if (tax > 0 && subtotal > 0 && taxAddedOnTop) {
+      // US style: tax is added on top, distribute it proportionally
       return items.map(item => {
         const itemAmount = parseFloat(item.amount || 0);
         const taxShare = (itemAmount / subtotal) * tax;
         return { ...item, taxShare: taxShare.toFixed(2) };
       });
     }
+    // Serbia style: tax is already included in prices, don't add it
     return items.map(item => ({ ...item, taxShare: '0' }));
   };
 
@@ -135,16 +155,20 @@ export default function ReceiptReviewScreen({ navigation, route }) {
       // Recalculate tax distribution if amount or tax changed
       if (field === 'amount' || field === 'tax') {
         const tax = parseFloat(field === 'tax' ? value : prev.tax || 0);
-        const updatedItems = calculateTaxDistribution(newItems, tax);
-        const subtotal = updatedItems.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
-        const total = subtotal + tax;
+        const subtotal = newItems.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
+        const currentTotal = parseFloat(prev.total || subtotal + tax);
+        const updatedItems = calculateTaxDistribution(newItems, tax, currentTotal);
+        const newSubtotal = updatedItems.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
+        // Recalculate total: if tax was added on top, total = subtotal + tax, otherwise total = subtotal
+        const taxAddedOnTop = Math.abs((newSubtotal + tax) - currentTotal) < 0.01;
+        const newTotal = taxAddedOnTop ? newSubtotal + tax : newSubtotal;
         
         return {
           ...prev,
           items: updatedItems,
           tax: field === 'tax' ? String(tax) : prev.tax,
-          subtotal: String(subtotal),
-          total: String(total),
+          subtotal: String(newSubtotal),
+          total: String(newTotal),
         };
       }
       
@@ -172,9 +196,12 @@ export default function ReceiptReviewScreen({ navigation, route }) {
     setStoreData(prev => {
       const newItems = prev.items.filter(item => item.id !== itemId);
       const tax = parseFloat(prev.tax || 0);
-      const updatedItems = calculateTaxDistribution(newItems, tax);
+      const currentTotal = parseFloat(prev.total || 0);
+      const updatedItems = calculateTaxDistribution(newItems, tax, currentTotal);
       const subtotal = updatedItems.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
-      const total = subtotal + tax;
+      // Recalculate total: if tax was added on top, total = subtotal + tax, otherwise total = subtotal
+      const taxAddedOnTop = Math.abs((subtotal + tax) - currentTotal) < 0.01;
+      const total = taxAddedOnTop ? subtotal + tax : subtotal;
       
       return {
         ...prev,
@@ -494,9 +521,12 @@ export default function ReceiptReviewScreen({ navigation, route }) {
               value={storeData.tax}
               onChangeText={(text) => {
                 const tax = parseFloat(text || 0);
-                const updatedItems = calculateTaxDistribution(storeData.items, tax);
+                const currentTotal = parseFloat(storeData.total || 0);
+                const updatedItems = calculateTaxDistribution(storeData.items, tax, currentTotal);
                 const subtotal = updatedItems.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
-                const total = subtotal + tax;
+                // Recalculate total: if tax was added on top, total = subtotal + tax, otherwise total = subtotal
+                const taxAddedOnTop = Math.abs((subtotal + tax) - currentTotal) < 0.01;
+                const total = taxAddedOnTop ? subtotal + tax : subtotal;
                 setStoreData(prev => ({
                   ...prev,
                   tax: String(tax),
