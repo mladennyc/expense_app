@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, ScrollView } from 'react-native';
 import ErrorBoundary from './src/ErrorBoundary';
 import { LanguageProvider, useLanguage } from './src/LanguageProvider';
 import { CurrencyProvider } from './src/CurrencyProvider';
@@ -50,10 +50,15 @@ function AppNavigator() {
               title: t('auth.login'),
               headerShown: true,
               headerRight: () => (
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 8 }}
+                  style={{ maxWidth: '100%' }}
+                >
                   <CurrencySelector />
                   <LanguageSelector />
-                </View>
+                </ScrollView>
               ),
             }}
           />
@@ -96,13 +101,18 @@ function AppNavigator() {
             title: t('screen.dashboard'),
             headerShown: true,
             headerRight: () => (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 8 }}
+                style={{ maxWidth: '100%' }}
+              >
                 <ExportButton />
                 <CurrencySelector />
                 <LanguageSelector />
                 <SettingsButton />
                 <LogoutButton />
-              </View>
+              </ScrollView>
             ),
           }}
         />
