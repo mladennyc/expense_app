@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TouchableOpacity, Text, StyleSheet, Platform, Modal, View, Alert } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, Platform, Modal, View, Alert, Dimensions } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLanguage } from './LanguageProvider';
 import { exportData } from '../api';
@@ -79,7 +79,11 @@ export default function ExportButton() {
         style={styles.button}
         onPress={() => setShowModal(true)}
       >
-        <Text style={styles.buttonText}>📥 {t('export.exportData') || 'Export'}</Text>
+        <Text style={styles.buttonText}>
+          {Platform.OS === 'web' && Dimensions.get('window').width < 768 
+            ? '📥' 
+            : `📥 ${t('export.exportData') || 'Export'}`}
+        </Text>
       </TouchableOpacity>
       
       <Modal
