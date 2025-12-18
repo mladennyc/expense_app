@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Alert, Platform, Image, Modal } from 'react-native';
 import { useLanguage } from '../src/LanguageProvider';
 import { colors } from '../src/colors';
-import { scanReceipt, createExpense, createExpensesBatch } from '../api';
+import { scanReceipt, createExpense, createExpensesBatch, getSubscriptionUsage } from '../api';
 import { CATEGORY_KEY_TO_NAME, CATEGORY_NAME_TO_KEY } from './AddExpenseScreen';
 
 export default function ReceiptReviewScreen({ navigation, route }) {
@@ -15,6 +15,7 @@ export default function ReceiptReviewScreen({ navigation, route }) {
   const [receiptType, setReceiptType] = useState(null); // 'utility' or 'store'
   const [selectedItemForCategory, setSelectedItemForCategory] = useState(null); // item ID for which category picker is open
   const [message, setMessage] = useState({ type: null, text: '' });
+  const [subscriptionUsage, setSubscriptionUsage] = useState(null);
   
   // For utility receipts (single entry)
   const [utilityFormData, setUtilityFormData] = useState({
@@ -39,7 +40,25 @@ export default function ReceiptReviewScreen({ navigation, route }) {
     if (imageBase64) {
       processReceipt();
     }
-  }, [imageBase64]);
+    loadSubscriptionUsage();
+  }, []);
+
+  const loadSubscriptionUsage = async () => {
+    try {
+      const usage = await getSubscriptionUsage();
+      setSubscriptionUsage(usage);
+    } catch (error) {
+      console.error('Error loading subscription usage:', error);
+    }
+  };
+
+  const getUsageDisplay = () => {
+    if (!subscriptionUsage) return null;
+    if (subscriptionUsage.scans_remaining === null) {
+      return 'Unlimited';
+    }
+    return `${subscriptionUsage.scans_used}/${subscriptionUsage.scan_limit}`;
+  };
 
   const processReceipt = async () => {
     try {
@@ -117,10 +136,31 @@ export default function ReceiptReviewScreen({ navigation, route }) {
       }
     } catch (error) {
       console.error('Error processing receipt:', error);
-      Alert.alert(
-        t('receipt.error'),
-        error.message || t('receipt.processingError')
-      );
+      const errorMessage = error.message || t('receipt.processingError');
+      
+      // Check if it's a limit reached error
+      const isLimitError = errorMessage.toLowerCase().includes('limit') || errorMessage.toLowerCase().includes('reached');
+      
+      if (isLimitError) {
+        // Show limit error with upgrade option
+        Alert.alert(
+          t('receipt.limitReached'),
+          errorMessage,
+          [
+            { text: t('button.cancel'), style: 'cancel' },
+            { 
+              text: t('receipt.upgradeNow'), 
+              onPress: () => navigation.navigate('ManageSubscription')
+            }
+          ]
+        );
+      } else {
+        // Show regular error
+        Alert.alert(
+          t('receipt.error'),
+          errorMessage
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -564,6 +604,13 @@ export default function ReceiptReviewScreen({ navigation, route }) {
 
   return (
     <ScrollView style={styles.container}>
+      {subscriptionUsage && (
+        <View style={styles.usageBadge}>
+          <Text style={styles.usageText}>
+            Scans: {getUsageDisplay()}
+          </Text>
+        </View>
+      )}
       {imageUri && (
         <View style={styles.imageContainer}>
           <Image source={{ uri: imageUri }} style={styles.receiptImage} />
@@ -979,5 +1026,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  usageBadge: {
+    backgroundColor: colors.primary + '20',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    margin: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    alignItems: 'center',
+  },
+  usageText: {
+    color: colors.primary,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

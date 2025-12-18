@@ -1,9 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform, ActivityIndicator, Image } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { useLanguage } from '../src/LanguageProvider';
 import { colors } from '../src/colors';
+import { getSubscriptionUsage } from '../api';
 
 export default function ReceiptCameraScreen({ navigation }) {
   const { t } = useLanguage();
@@ -11,7 +12,21 @@ export default function ReceiptCameraScreen({ navigation }) {
   const [facing, setFacing] = useState('back');
   const [capturedImage, setCapturedImage] = useState(null);
   const [processing, setProcessing] = useState(false);
+  const [subscriptionUsage, setSubscriptionUsage] = useState(null);
   const cameraRef = useRef(null);
+
+  useEffect(() => {
+    loadSubscriptionUsage();
+  }, []);
+
+  const loadSubscriptionUsage = async () => {
+    try {
+      const usage = await getSubscriptionUsage();
+      setSubscriptionUsage(usage);
+    } catch (error) {
+      console.error('Error loading subscription usage:', error);
+    }
+  };
 
   const takePicture = async () => {
     if (!cameraRef.current) {
@@ -38,6 +53,22 @@ export default function ReceiptCameraScreen({ navigation }) {
   };
 
   const pickFromGallery = async () => {
+    // Check scan limit before allowing gallery pick
+    if (subscriptionUsage && subscriptionUsage.scan_limit !== null && subscriptionUsage.scans_remaining !== null && subscriptionUsage.scans_remaining <= 0) {
+      Alert.alert(
+        t('receipt.limitReached'),
+        t('receipt.limitReachedMessage').replace('{limit}', subscriptionUsage.scan_limit),
+        [
+          { text: t('button.cancel'), style: 'cancel' },
+          { 
+            text: t('receipt.upgradeNow'), 
+            onPress: () => navigation.navigate('ManageSubscription')
+          }
+        ]
+      );
+      return;
+    }
+    
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
@@ -99,6 +130,14 @@ export default function ReceiptCameraScreen({ navigation }) {
     }
   };
 
+  const getUsageDisplay = () => {
+    if (!subscriptionUsage) return null;
+    if (subscriptionUsage.scans_remaining === null) {
+      return 'Unlimited';
+    }
+    return `${subscriptionUsage.scans_used}/${subscriptionUsage.scan_limit}`;
+  };
+
   const retakePhoto = () => {
     setCapturedImage(null);
   };
@@ -125,13 +164,39 @@ export default function ReceiptCameraScreen({ navigation }) {
         </View>
       );
     }
+    const isLimitReached = subscriptionUsage && subscriptionUsage.scan_limit !== null && subscriptionUsage.scans_remaining !== null && subscriptionUsage.scans_remaining <= 0;
+    
     return (
       <View style={styles.container}>
         <View style={styles.webContainer}>
           <Text style={styles.webTitle}>{t('receipt.selectReceiptPhoto')}</Text>
-          <TouchableOpacity style={styles.button} onPress={pickFromGallery}>
-            <Text style={styles.buttonText}>{t('receipt.pickFromGallery')}</Text>
-          </TouchableOpacity>
+          {subscriptionUsage && (
+            <View style={styles.usageBadgeWeb}>
+              <Text style={styles.usageTextWeb}>
+                Scans: {getUsageDisplay()}
+              </Text>
+            </View>
+          )}
+          {isLimitReached ? (
+            <View style={styles.limitMessageContainer}>
+              <Text style={styles.limitMessageText}>
+                {t('receipt.limitReachedMessage').replace('{limit}', subscriptionUsage.scan_limit)}
+              </Text>
+              <TouchableOpacity 
+                style={[styles.button, styles.upgradeButton]} 
+                onPress={() => navigation.navigate('ManageSubscription')}
+              >
+                <Text style={styles.buttonText}>{t('receipt.upgradeNow')}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity 
+              style={styles.button} 
+              onPress={pickFromGallery}
+            >
+              <Text style={styles.buttonText}>{t('receipt.pickFromGallery')}</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     );
@@ -147,15 +212,34 @@ export default function ReceiptCameraScreen({ navigation }) {
   }
 
   if (!permission.granted) {
+    const isLimitReached = subscriptionUsage && subscriptionUsage.scan_limit !== null && subscriptionUsage.scans_remaining !== null && subscriptionUsage.scans_remaining <= 0;
+    
     return (
       <View style={styles.container}>
         <Text style={styles.errorText}>{t('receipt.cameraPermissionDenied')}</Text>
         <TouchableOpacity style={styles.button} onPress={requestPermission}>
           <Text style={styles.buttonText}>{t('receipt.requestPermission')}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.button} onPress={pickFromGallery}>
-          <Text style={styles.buttonText}>{t('receipt.pickFromGallery')}</Text>
-        </TouchableOpacity>
+        {isLimitReached ? (
+          <View style={styles.limitMessageContainer}>
+            <Text style={styles.limitMessageText}>
+              {t('receipt.limitReachedMessage').replace('{limit}', subscriptionUsage.scan_limit)}
+            </Text>
+            <TouchableOpacity 
+              style={[styles.button, styles.upgradeButton]} 
+              onPress={() => navigation.navigate('ManageSubscription')}
+            >
+              <Text style={styles.buttonText}>{t('receipt.upgradeNow')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity 
+            style={styles.button} 
+            onPress={pickFromGallery}
+          >
+            <Text style={styles.buttonText}>{t('receipt.pickFromGallery')}</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   }
@@ -182,6 +266,8 @@ export default function ReceiptCameraScreen({ navigation }) {
   }
 
 
+  const isLimitReached = subscriptionUsage && subscriptionUsage.scan_limit !== null && subscriptionUsage.scans_remaining !== null && subscriptionUsage.scans_remaining <= 0;
+
   return (
     <View style={styles.container}>
       <CameraView
@@ -199,19 +285,46 @@ export default function ReceiptCameraScreen({ navigation }) {
             >
               <Text style={styles.flipButtonText}>🔄</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.galleryButton}
-              onPress={pickFromGallery}
-            >
-              <Text style={styles.galleryButtonText}>📷</Text>
-            </TouchableOpacity>
+            {subscriptionUsage && (
+              <View style={styles.usageBadge}>
+                <Text style={styles.usageText}>{getUsageDisplay()}</Text>
+              </View>
+            )}
+            {!isLimitReached && (
+              <TouchableOpacity
+                style={styles.galleryButton}
+                onPress={pickFromGallery}
+              >
+                <Text style={styles.galleryButtonText}>📷</Text>
+              </TouchableOpacity>
+            )}
           </View>
+          
+          {isLimitReached && (
+            <View style={styles.limitOverlay}>
+              <View style={styles.limitMessageBox}>
+                <Text style={styles.limitMessageTitle}>{t('receipt.limitReached')}</Text>
+                <Text style={styles.limitMessageText}>
+                  {t('receipt.limitReachedMessage').replace('{limit}', subscriptionUsage.scan_limit)}
+                </Text>
+                <TouchableOpacity 
+                  style={[styles.button, styles.upgradeButton]} 
+                  onPress={() => navigation.navigate('ManageSubscription')}
+                >
+                  <Text style={styles.buttonText}>{t('receipt.upgradeNow')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
           
           <View style={styles.bottomBar}>
             <TouchableOpacity
-              style={styles.captureButton}
+              style={[
+                styles.captureButton,
+                isLimitReached && styles.disabledButton
+              ]}
               onPress={takePicture}
-              disabled={processing}
+              disabled={processing || isLimitReached}
             >
               {processing ? (
                 <ActivityIndicator color="#fff" />
@@ -359,6 +472,79 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 24,
+  },
+  usageBadge: {
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  usageText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  usageBadgeWeb: {
+    backgroundColor: colors.primary + '20',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  usageTextWeb: {
+    color: colors.primary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  limitMessageContainer: {
+    backgroundColor: colors.error + '20',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.error,
+    alignItems: 'center',
+  },
+  limitMessageText: {
+    color: colors.error,
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  upgradeButton: {
+    backgroundColor: colors.primary,
+    marginTop: 0,
+  },
+  limitOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  limitMessageBox: {
+    backgroundColor: '#fff',
+    padding: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    maxWidth: 350,
+  },
+  limitMessageTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.error,
+    marginBottom: 12,
   },
 });
 

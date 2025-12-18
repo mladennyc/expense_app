@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
 import { useLanguage } from '../src/LanguageProvider';
 import { useAuth } from '../src/AuthContext';
-import { changePassword, deleteAccount } from '../api';
+import { changePassword, deleteAccount, getSubscriptionUsage } from '../api';
 import { colors } from '../src/colors';
 
 export default function SettingsScreen({ navigation }) {
@@ -14,6 +14,20 @@ export default function SettingsScreen({ navigation }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState({ type: '', text: '' });
+  const [subscriptionUsage, setSubscriptionUsage] = useState(null);
+
+  useEffect(() => {
+    loadSubscriptionUsage();
+  }, []);
+
+  const loadSubscriptionUsage = async () => {
+    try {
+      const usage = await getSubscriptionUsage();
+      setSubscriptionUsage(usage);
+    } catch (error) {
+      console.error('Error loading subscription usage:', error);
+    }
+  };
 
   const handleChangePassword = async () => {
     // Validation
@@ -112,6 +126,27 @@ export default function SettingsScreen({ navigation }) {
           )}
         </View>
 
+        {/* Subscription Management Link */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('subscription.currentSubscription')}</Text>
+          <TouchableOpacity
+            style={styles.subscriptionLink}
+            onPress={() => navigation.navigate('ManageSubscription')}
+          >
+            <View style={styles.subscriptionLinkContent}>
+              <Text style={styles.subscriptionLinkText}>{t('subscription.manageSubscriptionLink')}</Text>
+              <Text style={styles.subscriptionLinkArrow}>→</Text>
+            </View>
+          </TouchableOpacity>
+          {subscriptionUsage && (
+            <View style={styles.quickStats}>
+              <Text style={styles.quickStatsText}>
+                {subscriptionUsage.scans_used} / {subscriptionUsage.scans_remaining === null ? '∞' : subscriptionUsage.scan_limit} {t('subscription.scansUsedLabel')}
+              </Text>
+            </View>
+          )}
+        </View>
+
         {/* Change Password Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('settings.changePassword')}</Text>
@@ -167,6 +202,20 @@ export default function SettingsScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
+        {/* Help & Support Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('settings.helpSupport')}</Text>
+          <TouchableOpacity
+            style={styles.linkItem}
+            onPress={() => navigation.navigate('Contact')}
+          >
+            <View style={styles.linkItemContent}>
+              <Text style={styles.linkItemText}>{t('contact.contactUs')}</Text>
+              <Text style={styles.linkItemArrow}>→</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
         {/* Delete Account Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('settings.dangerZone')}</Text>
@@ -200,28 +249,31 @@ const styles = StyleSheet.create({
   },
   section: {
     backgroundColor: colors.surface,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: colors.border + '40',
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: colors.textPrimary,
     marginBottom: 16,
+    letterSpacing: 0.3,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.border + '30',
   },
   infoLabel: {
     fontSize: 16,
@@ -302,6 +354,54 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: 12,
     lineHeight: 20,
+  },
+  subscriptionLink: {
+    marginTop: 4,
+  },
+  subscriptionLinkContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+  },
+  subscriptionLinkText: {
+    fontSize: 16,
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  subscriptionLinkArrow: {
+    fontSize: 18,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  linkItem: {
+    marginTop: 4,
+  },
+  linkItemContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+  },
+  linkItemText: {
+    fontSize: 16,
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  linkItemArrow: {
+    fontSize: 18,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  quickStats: {
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  quickStatsText: {
+    fontSize: 14,
+    color: colors.textSecondary,
   },
 });
 

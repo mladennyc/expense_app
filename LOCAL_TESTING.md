@@ -84,3 +84,9 @@ EXPO_PUBLIC_USE_LOCAL_BACKEND=true npm start
 
 Just use the regular `npm start` command (without the `:local` suffix). The app will automatically use the production backend URL.
 
+
+
+
+
+
+

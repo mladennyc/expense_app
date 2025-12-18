@@ -9,15 +9,13 @@
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#10B981"
+      "resizeMode": "contain"
     },
     "android": {
       "package": "com.kasa.app",
       "versionCode": 1,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#10B981"
+        "foregroundImage": "./assets/adaptive-icon.png"
       },
       "permissions": ["CAMERA"]
     },

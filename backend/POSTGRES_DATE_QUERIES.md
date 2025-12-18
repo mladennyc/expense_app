@@ -104,6 +104,63 @@ SELECT
 FROM expenses;
 ```
 
+## Expenses and Net Income Per Month Per User
+
+```sql
+SELECT
+    u.id AS user_id,
+    u.email,
+    u.name AS user_name,
+    TO_CHAR(combined.date, 'YYYY-MM') AS month,
+    SUM(CASE WHEN combined.type = 'expense' THEN combined.amount::numeric ELSE 0 END) AS total_expenses,
+    SUM(CASE WHEN combined.type = 'income' THEN combined.amount::numeric ELSE 0 END) AS total_income,
+    SUM(CASE WHEN combined.type = 'income' THEN combined.amount::numeric ELSE 0 END) -
+    SUM(CASE WHEN combined.type = 'expense' THEN combined.amount::numeric ELSE 0 END) AS net_income
+FROM (
+    SELECT user_id, date, amount, 'expense' AS type FROM expenses
+    UNION ALL
+    SELECT user_id, date, amount, 'income' AS type FROM incomes
+) combined
+JOIN users u ON combined.user_id = u.id
+GROUP BY u.id, u.email, u.name, TO_CHAR(combined.date, 'YYYY-MM')
+ORDER BY u.id, month DESC;
+```
+
+### Simplified Version (Without User Details)
+```sql
+SELECT
+    user_id,
+    TO_CHAR(date, 'YYYY-MM') AS month,
+    SUM(CASE WHEN type = 'expense' THEN amount::numeric ELSE 0 END) AS total_expenses,
+    SUM(CASE WHEN type = 'income' THEN amount::numeric ELSE 0 END) AS total_income,
+    SUM(CASE WHEN type = 'income' THEN amount::numeric ELSE 0 END) -
+    SUM(CASE WHEN type = 'expense' THEN amount::numeric ELSE 0 END) AS net_income
+FROM (
+    SELECT user_id, date, amount, 'expense' AS type FROM expenses
+    UNION ALL
+    SELECT user_id, date, amount, 'income' AS type FROM incomes
+) combined
+GROUP BY user_id, TO_CHAR(date, 'YYYY-MM')
+ORDER BY user_id, month DESC;
+```
+
+### For a Specific User
+```sql
+SELECT
+    TO_CHAR(combined.date, 'YYYY-MM') AS month,
+    SUM(CASE WHEN combined.type = 'expense' THEN combined.amount::numeric ELSE 0 END) AS total_expenses,
+    SUM(CASE WHEN combined.type = 'income' THEN combined.amount::numeric ELSE 0 END) AS total_income,
+    SUM(CASE WHEN combined.type = 'income' THEN combined.amount::numeric ELSE 0 END) -
+    SUM(CASE WHEN combined.type = 'expense' THEN combined.amount::numeric ELSE 0 END) AS net_income
+FROM (
+    SELECT user_id, date, amount, 'expense' AS type FROM expenses WHERE user_id = 1
+    UNION ALL
+    SELECT user_id, date, amount, 'income' AS type FROM incomes WHERE user_id = 1
+) combined
+GROUP BY TO_CHAR(combined.date, 'YYYY-MM')
+ORDER BY month DESC;
+```
+
 ## In Python/SQLAlchemy
 
 ```python

@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, ActivityIndicator, ScrollView } from 'react-native';
+import { View, ActivityIndicator, ScrollView, Platform } from 'react-native';
 import ErrorBoundary from './src/ErrorBoundary';
 import { LanguageProvider, useLanguage } from './src/LanguageProvider';
 import { CurrencyProvider } from './src/CurrencyProvider';
@@ -11,6 +11,7 @@ import CurrencySelector from './src/CurrencySelector';
 import LogoutButton from './src/LogoutButton';
 import SettingsButton from './src/SettingsButton';
 import ExportButton from './src/ExportButton';
+import NotificationBell from './src/NotificationBell';
 import LoginScreen from './screens/LoginScreen';
 import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 import TermsOfServiceScreen from './screens/TermsOfServiceScreen';
@@ -22,8 +23,11 @@ import AddIncomeScreen from './screens/AddIncomeScreen';
 import EditIncomeScreen from './screens/EditIncomeScreen';
 import CategoryBreakdownScreen from './screens/CategoryBreakdownScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import ManageSubscriptionScreen from './screens/ManageSubscriptionScreen';
 import ReceiptCameraScreen from './screens/ReceiptCameraScreen';
 import ReceiptReviewScreen from './screens/ReceiptReviewScreen';
+import NotificationsScreen from './screens/NotificationsScreen';
+import ContactScreen from './screens/ContactScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -50,15 +54,22 @@ function AppNavigator() {
               title: t('auth.login'),
               headerShown: true,
               headerRight: () => (
-                <ScrollView 
-                  horizontal 
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 8 }}
-                  style={{ maxWidth: '100%' }}
-                >
-                  <CurrencySelector />
-                  <LanguageSelector />
-                </ScrollView>
+                Platform.OS === 'web' ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <CurrencySelector />
+                    <LanguageSelector />
+                  </View>
+                ) : (
+                  <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 8 }}
+                    style={{ maxWidth: '100%' }}
+                  >
+                    <CurrencySelector />
+                    <LanguageSelector />
+                  </ScrollView>
+                )
               ),
             }}
           />
@@ -101,18 +112,30 @@ function AppNavigator() {
             title: t('screen.dashboard'),
             headerShown: true,
             headerRight: () => (
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 8 }}
-                style={{ maxWidth: '100%' }}
-              >
-                <ExportButton />
-                <CurrencySelector />
-                <LanguageSelector />
-                <SettingsButton />
-                <LogoutButton />
-              </ScrollView>
+              Platform.OS === 'web' ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <NotificationBell />
+                  <ExportButton />
+                  <CurrencySelector />
+                  <LanguageSelector />
+                  <SettingsButton />
+                  <LogoutButton />
+                </View>
+              ) : (
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 8 }}
+                  style={{ maxWidth: '100%' }}
+                >
+                  <NotificationBell />
+                  <ExportButton />
+                  <CurrencySelector />
+                  <LanguageSelector />
+                  <SettingsButton />
+                  <LogoutButton />
+                </ScrollView>
+              )
             ),
           }}
         />
@@ -165,6 +188,22 @@ function AppNavigator() {
           }}
         />
         <Stack.Screen 
+          name="ManageSubscription" 
+          component={ManageSubscriptionScreen}
+          options={{ 
+            title: 'Manage Subscription',
+            headerShown: true,
+          }}
+        />
+        <Stack.Screen 
+          name="Notifications" 
+          component={NotificationsScreen}
+          options={{ 
+            title: 'Notifications',
+            headerShown: true,
+          }}
+        />
+        <Stack.Screen 
           name="ReceiptCamera" 
           component={ReceiptCameraScreen}
           options={{ 
@@ -177,6 +216,14 @@ function AppNavigator() {
           component={ReceiptReviewScreen}
           options={{ 
             title: t('screen.reviewReceipt'),
+            headerShown: true,
+          }}
+        />
+        <Stack.Screen 
+          name="Contact" 
+          component={ContactScreen}
+          options={{ 
+            title: t('screen.contact'),
             headerShown: true,
           }}
         />

@@ -390,6 +390,100 @@ export async function scanReceipt(imageBase64, language = 'en') {
 }
 
 // Export functions
+// Subscription API functions
+export async function getSubscriptionStatus() {
+  const response = await authenticatedFetch(`${BASE_URL}/subscription/status`);
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to get subscription status' }));
+    throw new Error(error.detail || 'Failed to get subscription status');
+  }
+  return await response.json();
+}
+
+export async function getSubscriptionUsage() {
+  const response = await authenticatedFetch(`${BASE_URL}/subscription/usage`);
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to get subscription usage' }));
+    throw new Error(error.detail || 'Failed to get subscription usage');
+  }
+  return await response.json();
+}
+
+export async function createCheckoutSession(planType) {
+  const response = await authenticatedFetch(`${BASE_URL}/subscription/create-checkout`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ plan_type: planType }),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to create checkout session' }));
+    throw new Error(error.detail || 'Failed to create checkout session');
+  }
+  return await response.json();
+}
+
+export async function applyPromoCode(code) {
+  const response = await authenticatedFetch(`${BASE_URL}/subscription/apply-promo-code`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ code }),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to apply promo code' }));
+    throw new Error(error.detail || error.message || 'Failed to apply promo code');
+  }
+  return await response.json();
+}
+
+export async function cancelSubscription() {
+  const response = await authenticatedFetch(`${BASE_URL}/subscription/cancel`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to cancel subscription' }));
+    throw new Error(error.detail || 'Failed to cancel subscription');
+  }
+  return await response.json();
+}
+
+export async function getNotifications() {
+  const response = await authenticatedFetch(`${BASE_URL}/notifications`);
+  const data = await response.json();
+  return normalizeBooleans(data);
+}
+
+export async function getUnreadNotificationCount() {
+  const response = await authenticatedFetch(`${BASE_URL}/notifications/unread-count`);
+  const data = await response.json();
+  return normalizeBooleans(data);
+}
+
+export async function markNotificationRead(notificationId) {
+  const response = await authenticatedFetch(`${BASE_URL}/notifications/${notificationId}/read`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to mark notification as read' }));
+    throw new Error(error.detail || 'Failed to mark notification as read');
+  }
+  return await response.json();
+}
+
+export async function markAllNotificationsRead() {
+  const response = await authenticatedFetch(`${BASE_URL}/notifications/mark-all-read`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to mark all notifications as read' }));
+    throw new Error(error.detail || 'Failed to mark all notifications as read');
+  }
+  return await response.json();
+}
+
 export async function exportData(startDate, endDate, format) {
   const token = await getAuthToken();
   if (!token) {

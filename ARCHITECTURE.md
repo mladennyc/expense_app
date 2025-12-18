@@ -1,108 +1,185 @@
-# Expense App Architecture Plan
+# Expense App Architecture
 
 ## Current State
-- FastAPI backend with in-memory storage
-- React Native (Expo) frontend
-- No authentication
-- No persistent data storage
+- ✅ FastAPI backend with SQLite/PostgreSQL database
+- ✅ React Native (Expo) frontend (mobile + web)
+- ✅ JWT-based authentication
+- ✅ Persistent data storage with SQLAlchemy ORM
+- ✅ Subscription system with Stripe integration
+- ✅ Receipt scanning with OpenAI GPT-4 Turbo
+- ✅ In-app notifications system
+- ✅ Multi-language support (8 languages)
+- ✅ Multi-currency support
 
-## Recommended Implementation Plan
+## Architecture Overview
 
-### Phase 1: Database & Authentication (Current Priority)
+### Backend Structure
 
-#### Database: SQLite → PostgreSQL
-- **Start with SQLite** (simple, file-based, no setup needed)
-- **Migrate to PostgreSQL** when deploying (better for production)
-
-#### Authentication Flow
-1. **First page**: Sign In / Sign Up screen
-2. **JWT tokens** for session management
-3. **Password hashing** with bcrypt
-4. **Protected routes** - require authentication
-
-#### Database Schema
-```sql
-Users:
-- id (primary key)
-- email (unique)
-- password_hash
-- name
-- created_at
-
-Expenses:
-- id (primary key)
-- user_id (foreign key → Users)
-- amount
-- date
-- category
-- description
-- created_at
+```
+backend/
+├── main.py                 # FastAPI app entry point, route registration
+├── database.py             # SQLAlchemy models and database initialization
+├── auth.py                 # JWT authentication utilities
+├── email_service.py        # Email sending service (Brevo SMTP)
+├── models.py               # Pydantic request/response models
+├── routes/                 # Modular route handlers
+│   ├── __init__.py
+│   ├── auth.py             # Authentication endpoints (signup, login, password reset)
+│   ├── expenses.py         # Expense CRUD operations
+│   ├── income.py           # Income CRUD operations
+│   ├── stats.py            # Statistics and analytics endpoints
+│   ├── receipts.py         # Receipt scanning and processing
+│   ├── export.py           # CSV export functionality
+│   ├── subscription.py     # Subscription management, Stripe integration, webhooks
+│   ├── notifications.py    # In-app notification endpoints
+│   └── debug.py            # Debug endpoints (development only)
+└── requirements.txt       # Python dependencies
 ```
 
-### Phase 2: Multi-User Support
-- Each user sees only their expenses
-- Family members can have separate accounts
-- Future: shared family groups/categories
+### Frontend Structure
 
-### Phase 3: Deployment
+```
+frontend/
+├── App.js                  # Main app component, navigation setup
+├── api.js                  # API client functions
+├── config.js               # Configuration (API URLs)
+├── screens/                # App screens
+│   ├── LoginScreen.js
+│   ├── DashboardScreen.js
+│   ├── AddExpenseScreen.js
+│   ├── ReceiptCameraScreen.js
+│   ├── ReceiptReviewScreen.js
+│   ├── SettingsScreen.js
+│   ├── ManageSubscriptionScreen.js
+│   ├── NotificationsScreen.js
+│   ├── ContactScreen.js
+│   └── ...
+├── src/                    # Shared components and providers
+│   ├── AuthContext.js      # Authentication context
+│   ├── LanguageProvider.js # i18n translation system
+│   ├── CurrencyProvider.js # Currency conversion
+│   ├── NotificationBell.js # Notification badge component
+│   └── ...
+└── package.json
+```
 
-#### Backend Hosting Options:
-1. **Railway** (Recommended)
-   - Easy setup
-   - Free tier available
-   - Automatic deployments from GitHub
-   - Built-in PostgreSQL
+## Database Schema
 
-2. **Render**
-   - Free tier
-   - Easy PostgreSQL setup
-   - Auto-deploy from GitHub
+### Core Tables
+- **users**: User accounts (email, password_hash, name, created_at)
+- **expenses**: Expense records (user_id, amount, date, category, description, merchant)
+- **income**: Income records (user_id, amount, date, source, description)
 
-3. **Fly.io**
-   - Good for global distribution
-   - Free tier
+### Subscription System
+- **subscriptions**: User subscription plans (LIMITED, FREE, EXTRA_30, UNLIMITED)
+- **receipt_scans**: Scan usage tracking (user_id, month, year, scan_count)
+- **promo_codes**: Promo code management (code, type, expires_at, max_uses)
 
-#### Frontend Hosting:
-- **Expo**: Free hosting for mobile apps
-- **Vercel/Netlify**: For web version
+### Notifications
+- **notifications**: In-app notifications (user_id, message, type, read, created_at)
 
-#### Deployment Steps:
-1. Push code to GitHub
-2. Connect Railway/Render to GitHub repo
-3. Set environment variables
-4. Deploy backend
-5. Update frontend BASE_URL to production URL
-6. Deploy frontend via Expo
+## Key Features
 
-### Technology Stack
+### 1. Authentication & Authorization
+- JWT token-based authentication
+- Password hashing with bcrypt
+- Protected API routes
+- Token stored in AsyncStorage (frontend)
 
-**Backend:**
-- FastAPI
-- SQLAlchemy (ORM)
-- SQLite (dev) → PostgreSQL (prod)
-- python-jose (JWT tokens)
-- passlib[bcrypt] (password hashing)
-- alembic (database migrations)
+### 2. Subscription System
+- **Free Plan (LIMITED)**: 10 receipt scans per month (default)
+- **EXTRA_30**: One-time purchase of 30 additional scans ($0.99)
+- **UNLIMITED**: Monthly subscription ($1.99/month)
+- **FREE**: Promo code for unlimited access
+- Stripe integration for payments
+- Webhook handling for subscription events
 
-**Frontend:**
-- React Native (Expo)
-- AsyncStorage (local token storage)
-- React Navigation
+### 3. Receipt Scanning
+- Photo capture/gallery selection
+- OpenAI GPT-4 Turbo for OCR and data extraction
+- Automatic itemization
+- Tax calculation (US-style: tax added on top, Serbia-style: tax included)
+- Scan limit enforcement based on subscription plan
 
-### Security Considerations
-- Hash passwords (never store plain text)
-- Use HTTPS in production
-- Validate all inputs
-- Rate limiting for auth endpoints
-- CORS configuration for production
+### 4. In-App Notifications
+- Database-backed notification system
+- Real-time unread count badge
+- Notification types: payment_failed, subscription_cancelled, etc.
+- Mark as read functionality
 
-### Next Steps
-1. ✅ Add SQLite database with SQLAlchemy
-2. ✅ Create User and Expense models
-3. ✅ Add authentication endpoints (signup, login)
-4. ✅ Add JWT token generation
-5. ✅ Protect expense endpoints (require auth)
-6. ✅ Update frontend with login screen
-7. ✅ Store JWT token in AsyncStorage
-8. ✅ Add token to API requests
+### 5. Internationalization
+- 8 languages: English, Serbian, Spanish, Portuguese, French, German, Italian, Arabic
+- Currency conversion support
+- Language/currency selectors in header
 
+### 6. Contact Form
+- Formspree integration for support messages
+- User-controlled success state (replaces form on success)
+- Inline error messages
+
+## Technology Stack
+
+### Backend
+- **FastAPI**: Modern Python web framework
+- **SQLAlchemy**: ORM for database operations
+- **SQLite**: Development database
+- **PostgreSQL**: Production database (optional)
+- **python-jose**: JWT token handling
+- **passlib[bcrypt]**: Password hashing
+- **stripe**: Payment processing
+- **openai**: Receipt OCR and data extraction
+
+### Frontend
+- **React Native (Expo)**: Cross-platform mobile/web framework
+- **React Navigation**: Screen navigation
+- **AsyncStorage**: Local token storage
+- **React Native Chart Kit**: Charts and graphs
+
+## Security Considerations
+- ✅ Password hashing (bcrypt)
+- ✅ JWT token authentication
+- ✅ HTTPS in production
+- ✅ Input validation
+- ✅ CORS configuration
+- ✅ Environment variables for secrets
+- ✅ Stripe webhook signature verification
+
+## Environment Variables
+
+### Backend (.env)
+```
+SECRET_KEY=<jwt-secret-key>
+DATABASE_URL=sqlite:///./expenses.db  # or PostgreSQL URL
+OPENAI_API_KEY=<openai-api-key>
+STRIPE_SECRET_KEY=<stripe-secret-key>
+STRIPE_PUBLISHABLE_KEY=<stripe-publishable-key>
+STRIPE_WEBHOOK_SECRET=<stripe-webhook-secret>
+STRIPE_PRICE_ID_EXTRA_30=<price-id>
+STRIPE_PRICE_ID_UNLIMITED=<price-id>
+SMTP_SERVER=smtp-relay.brevo.com
+SMTP_PORT=587
+SMTP_USERNAME=<brevo-username>
+SMTP_PASSWORD=<brevo-password>
+SENDER_EMAIL=<sender-email>
+BASE_URL=<frontend-url>
+```
+
+### Frontend (config.js)
+```javascript
+export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
+```
+
+## Development Workflow
+
+1. **Backend**: `cd backend && uvicorn main:app --reload --host 0.0.0.0 --port 8000`
+2. **Frontend**: `cd frontend && npm start`
+3. **Database**: SQLite file created automatically on first run
+4. **Stripe Webhooks (local)**: Use Stripe CLI for local webhook forwarding
+
+## Deployment
+
+- **Backend**: Railway, Render, or Fly.io
+- **Frontend Web**: Vercel, Netlify, or Expo hosting
+- **Mobile Apps**: EAS Build (Expo Application Services)
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.

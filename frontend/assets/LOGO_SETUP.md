@@ -25,13 +25,13 @@ Place your logo files in the `frontend/assets/` folder:
 
 ### 3. **splash.png** (Splash Screen)
 - **Size:** 1242x2436 pixels (or 1284x2778 for newer iPhones)
-- **Format:** PNG
+- **Format:** PNG with transparency
 - **Usage:** Loading screen when app starts
 - **Design Tips:**
   - Center your logo
-  - Use your brand colors
   - Keep it simple and clean
-  - Background color is set to `#10B981` (teal/green) in `app.json`
+  - Use transparent background (no background color in the image)
+  - Logo will be scaled to fit screen width while maintaining aspect ratio
 
 ### 4. **favicon.png** (Web Favicon)
 - **Size:** 48x48 pixels (or 32x32)
