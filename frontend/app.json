@@ -1,10 +1,23 @@
 {
   "expo": {
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow KASA to access your camera to take receipt photos.",
+          "photosPermission": "Allow KASA to access your photos to select receipt images."
+        }
+      ]
+    ],
     "name": "KASA",
     "slug": "kasa",
     "version": "1.0.0",
     "orientation": "portrait",
-    "platforms": ["ios", "android", "web"],
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
@@ -17,7 +30,9 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png"
       },
-      "permissions": ["CAMERA"]
+      "permissions": [
+        "CAMERA"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -25,6 +40,11 @@
     },
     "packagerOpts": {
       "host": "192.168.1.76"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "bbc448be-3959-438f-8cba-51c399b7b65f"
+      }
     }
   }
 }
