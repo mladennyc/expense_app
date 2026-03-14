@@ -116,9 +116,12 @@ function AppNavigator() {
             headerRight: () => (
               Platform.OS === 'web' ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <TouchableOpacity onPress={() => Linking.openURL(`${BASE_URL}/download/android`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <Text style={{ fontSize: 18 }}>📲</Text>
-                    <Text style={{ color: '#10B981', fontSize: 14, fontWeight: '600' }}>Get app</Text>
+                  <TouchableOpacity
+                    onPress={() => Linking.openURL(`${BASE_URL}/download/android`)}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 5, paddingHorizontal: 10, borderRadius: 5, marginRight: 5, backgroundColor: 'transparent' }}
+                  >
+                    <Text style={{ fontSize: 16, color: '#1E293B' }}>📲</Text>
+                    <Text style={{ color: '#1E293B', fontSize: 14, fontWeight: '500' }}>{t('app.getApp')}</Text>
                   </TouchableOpacity>
                   <NotificationBell />
                   <ExportButton />

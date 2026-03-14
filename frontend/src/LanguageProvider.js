@@ -246,8 +246,10 @@ const translations = {
             'auth.confirmDeleteAccount': 'Are you sure you want to delete your account? This will permanently delete all your data including all expenses. This action cannot be undone.',
             'auth.failedToDeleteAccount': 'Failed to delete account. Please try again.',
             'auth.error': 'Error',
-            'auth.logout': 'Logout',
-            
+'auth.logout': 'Logout',
+            'app.getApp': 'Get app',
+            'app.downloadAndroidApp': 'Download Android app',
+
             // Settings
             'screen.settings': 'Settings',
             'screen.contact': 'Contact Us',
@@ -530,8 +532,10 @@ const translations = {
             'auth.confirmDeleteAccount': 'Da li ste sigurni da želite da obrišete svoj nalog? Ovo će trajno obrisati sve vaše podatke uključujući sve rashode. Ova akcija se ne može poništiti.',
             'auth.failedToDeleteAccount': 'Neuspešno brisanje naloga. Molimo pokušajte ponovo.',
             'auth.error': 'Greška',
-            'auth.logout': 'Odjavi Se',
-            
+'auth.logout': 'Odjavi Se',
+            'app.getApp': 'Preuzmi aplikaciju',
+            'app.downloadAndroidApp': 'Preuzmi Android aplikaciju',
+
             // Settings
             'screen.settings': 'Podešavanja',
             'screen.contact': 'Kontaktirajte Nas',
@@ -813,8 +817,10 @@ const translations = {
             'auth.confirmDeleteAccount': '¿Está seguro de que desea eliminar su cuenta? Esto eliminará permanentemente todos sus datos, incluidos todos los gastos. Esta acción no se puede deshacer.',
             'auth.failedToDeleteAccount': 'Error al eliminar la cuenta. Por favor, inténtelo de nuevo.',
             'auth.error': 'Error',
-            'auth.logout': 'Cerrar Sesión',
-            
+'auth.logout': 'Cerrar Sesión',
+            'app.getApp': 'Obtener app',
+            'app.downloadAndroidApp': 'Descargar aplicación Android',
+
             // Settings
             'screen.settings': 'Configuración',
             'screen.contact': 'Contáctenos',
@@ -1074,6 +1080,8 @@ const translations = {
             'auth.failedToDeleteAccount': 'Falha ao excluir a conta. Por favor, tente novamente.',
             'auth.error': 'Erro',
             'auth.logout': 'Sair',
+            'app.getApp': 'Obter app',
+            'app.downloadAndroidApp': 'Transferir aplicativo Android',
             'screen.settings': 'Configurações',
             'screen.contact': 'Entre em Contato',
             'settings.openSettings': 'Abrir Configurações',
@@ -1332,6 +1340,8 @@ const translations = {
             'auth.failedToDeleteAccount': 'Échec de la suppression du compte. Veuillez réessayer.',
             'auth.error': 'Erreur',
             'auth.logout': 'Déconnexion',
+            'app.getApp': 'Obtenir l\'app',
+            'app.downloadAndroidApp': 'Télécharger l\'app Android',
             'screen.settings': 'Paramètres',
             'screen.contact': 'Nous Contacter',
             'settings.openSettings': 'Ouvrir les Paramètres',
@@ -1590,6 +1600,8 @@ const translations = {
             'auth.failedToDeleteAccount': 'Fehler beim Löschen des Kontos. Bitte versuchen Sie es erneut.',
             'auth.error': 'Fehler',
             'auth.logout': 'Abmelden',
+            'app.getApp': 'App holen',
+            'app.downloadAndroidApp': 'Android-App herunterladen',
             'screen.settings': 'Einstellungen',
             'screen.contact': 'Kontaktieren Sie Uns',
             'settings.openSettings': 'Einstellungen Öffnen',
@@ -1848,6 +1860,8 @@ const translations = {
             'auth.failedToDeleteAccount': 'Impossibile eliminare l\'account. Riprova.',
             'auth.error': 'Errore',
             'auth.logout': 'Esci',
+            'app.getApp': 'Scarica app',
+            'app.downloadAndroidApp': 'Scarica app Android',
             'screen.settings': 'Impostazioni',
             'screen.contact': 'Contattaci',
             'settings.openSettings': 'Apri Impostazioni',
@@ -2106,6 +2120,8 @@ const translations = {
             'auth.failedToDeleteAccount': 'فشل في حذف الحساب. يرجى المحاولة مرة أخرى.',
             'auth.error': 'خطأ',
             'auth.logout': 'تسجيل الخروج',
+            'app.getApp': 'احصل على التطبيق',
+            'app.downloadAndroidApp': 'تحميل تطبيق أندرويد',
             'screen.settings': 'الإعدادات',
             'screen.contact': 'اتصل بنا',
             'settings.openSettings': 'فتح الإعدادات',

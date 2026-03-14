@@ -239,7 +239,7 @@ export default function LoginScreen({ navigation }) {
             style={styles.downloadAppButton}
             onPress={() => Linking.openURL(`${BASE_URL}/download/android`)}
           >
-            <Text style={styles.downloadAppText}>Download Android app</Text>
+            <Text style={styles.downloadAppText}>{t('app.downloadAndroidApp')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -416,11 +416,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#10B981',
+    borderColor: '#007AFF',
     borderRadius: 8,
   },
   downloadAppText: {
-    color: '#10B981',
+    color: '#007AFF',
     fontSize: 16,
     fontWeight: '600',
   },
