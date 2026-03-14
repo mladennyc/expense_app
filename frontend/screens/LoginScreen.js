@@ -9,9 +9,11 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Linking,
 } from 'react-native';
 import { useAuth } from '../src/AuthContext';
 import { useLanguage } from '../src/LanguageProvider';
+import { BASE_URL } from '../config';
 
 export default function LoginScreen({ navigation }) {
   const { login, signup } = useAuth();
@@ -231,6 +233,15 @@ export default function LoginScreen({ navigation }) {
               : t('auth.noAccount')}
           </Text>
         </TouchableOpacity>
+
+        {Platform.OS === 'web' && (
+          <TouchableOpacity
+            style={styles.downloadAppButton}
+            onPress={() => Linking.openURL(`${BASE_URL}/download/android`)}
+          >
+            <Text style={styles.downloadAppText}>Download Android app</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </ScrollView>
   );
@@ -398,6 +409,20 @@ const styles = StyleSheet.create({
   switchButtonText: {
     color: '#007AFF',
     fontSize: 16,
+  },
+  downloadAppButton: {
+    marginTop: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#10B981',
+    borderRadius: 8,
+  },
+  downloadAppText: {
+    color: '#10B981',
+    fontSize: 16,
+    fontWeight: '600',
   },
   termsContainer: {
     marginBottom: 20,

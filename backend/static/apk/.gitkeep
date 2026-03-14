@@ -1,0 +1,4 @@
+# Place kasa.apk here for direct download from the web app.
+# Build with: npx eas build --platform android --profile preview
+# Download the APK from the EAS build page, rename to kasa.apk, put in this folder.
+# Then deploy the backend. Download URL will be: <BACKEND_URL>/download/android

@@ -1,5 +1,8 @@
-from fastapi import FastAPI
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
 # Load environment variables from .env file FIRST, before any imports that need them
@@ -50,6 +53,24 @@ def read_root():
 @app.head("/health")
 async def health_check():
     return {"status": "ok"}
+
+
+# Android APK direct download (for web app "Download Android app" link)
+APK_DIR = Path(__file__).resolve().parent / "static" / "apk"
+APK_FILENAME = "kasa.apk"
+
+
+@app.get("/download/android")
+async def download_android_apk():
+    """Serve the Android APK for direct install. Place kasa.apk in backend/static/apk/."""
+    path = APK_DIR / APK_FILENAME
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="APK not available")
+    return FileResponse(
+        path,
+        media_type="application/vnd.android.package-archive",
+        filename=APK_FILENAME,
+    )
 
 
 # Include routers
