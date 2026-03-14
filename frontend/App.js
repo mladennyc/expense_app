@@ -1,7 +1,8 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, ActivityIndicator, ScrollView, Platform } from 'react-native';
+import { View, ActivityIndicator, ScrollView, Platform, TouchableOpacity, Text, Linking } from 'react-native';
+import { BASE_URL } from './config';
 import ErrorBoundary from './src/ErrorBoundary';
 import { LanguageProvider, useLanguage } from './src/LanguageProvider';
 import { CurrencyProvider } from './src/CurrencyProvider';
@@ -115,6 +116,10 @@ function AppNavigator() {
             headerRight: () => (
               Platform.OS === 'web' ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <TouchableOpacity onPress={() => Linking.openURL(`${BASE_URL}/download/android`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Text style={{ fontSize: 18 }}>📲</Text>
+                    <Text style={{ color: '#10B981', fontSize: 14, fontWeight: '600' }}>Get app</Text>
+                  </TouchableOpacity>
                   <NotificationBell />
                   <ExportButton />
                   <CurrencySelector />

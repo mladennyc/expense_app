@@ -46,8 +46,6 @@ web-build/
 # Build files
 *.apk
 *.aab
-# Allow the APK we serve for "Download Android app" (backend/static/apk/)
-!backend/static/apk/kasa.apk
 *.ipa
 *.dSYM.zip
 *.dSYM

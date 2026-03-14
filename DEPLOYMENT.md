@@ -213,6 +213,49 @@ This guide covers deploying the Expense App to GitHub, web, and building an Andr
    - Fill in store listing, screenshots, etc.
    - Submit for review
 
+## 4b. Android APK direct download (best practice)
+
+**Use this when:** You want a "Download Android app" link on the web app so users can install the APK without the Play Store.
+
+**Best practice (one approach):** Host the APK on **GitHub Releases**. No new services, no 65MB file in Git, no backend file upload. One stable direct-download URL.
+
+1. **Build the APK** (from `frontend/`):
+   ```bash
+   npm run build:android:preview
+   ```
+2. **Download the APK** from the EAS build page (expo.dev → your project → Builds → that build → Download).
+3. **Create a GitHub Release:**
+   - Repo → **Releases** → **Create a new release**.
+   - Tag (e.g. `v1.0.0`). Title optional.
+   - Drag and drop the APK file into the release assets. Publish.
+4. **Get the direct download URL:**
+   - On the release page, right‑click the APK asset → **Copy link address**.
+   - Format: `https://github.com/OWNER/REPO/releases/download/TAG/kasa.apk`
+5. **Use that URL** in the app for the "Download Android app" button (e.g. in `frontend/config.js` as `ANDROID_DOWNLOAD_URL` and point the button to it).
+6. **When you have a new build:** Create a new release (new tag), attach the new APK, and update the URL in the app if you want the button to point to the latest.
+
+**Do not:** Commit the APK to Git (repo bloat, GitHub warnings). **Do not:** Add new hosting services unless you prefer them over GitHub Releases.
+
+### 4b.1 Download button inside the app (after login) – best practice
+
+**Goal:** Show a "Download Android app" option inside the app once the user is logged in (so web users can install the native app).
+
+**Best practice (researched):**
+
+1. **Show only on web.** When the user is in the native Android app, do not show the button (they already have the app). Use `Platform.OS === 'web'` so the button appears only in the web build.
+
+2. **Placement – one clear place, outside the main flow.** Don’t block login or main actions. Common options:
+   - **Settings / Profile screen** – e.g. "Get the Android app" in Settings. Most common and least intrusive.
+   - **Header or nav** – small link next to other nav items (e.g. "Download app").
+   - **Footer** – optional secondary placement.
+   Avoid showing it in multiple places; one location is enough.
+
+3. **Don’t overwhelm.** If you use a banner, allow the user to dismiss it and remember that choice (e.g. in AsyncStorage) so you don’t prompt again every time. Re-show only after a meaningful change (e.g. after they sign in again or after a long time).
+
+5. **Same link as login.** Use the same download URL (your backend `/download/android` or your GitHub Releases URL) for both the login-screen button and the in-app button.
+
+**Summary:** Web-only, one place (Settings or header), same URL as login; use a download icon ± short text (no Play Store badge for direct APK); optional dismiss + remember for banners.
+
 ## 5. Update Frontend Config for Production
 
 Update `frontend/config.js`:
