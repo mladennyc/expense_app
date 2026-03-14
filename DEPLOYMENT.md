@@ -259,6 +259,67 @@ npx expo export:web
 # Then deploy the web-build folder to Vercel/Netlify
 ```
 
+## 8. EAS Build Issues Encountered & Fixes (for next time)
+
+This section documents issues we hit during EAS Android production builds and how to avoid or fix them.
+
+### 8.1 Metro config: "does not extend @expo/metro-config"
+
+- **Symptom:** EAS warns: "It looks like that you are using a custom metro.config.js that does not extend @expo/metro-config" and asks to abort.
+- **Cause:** Old eas-cli (e.g. 13.x) used a check that had false positives; it could warn even when the project correctly uses `getDefaultConfig(__dirname)` from Expo.
+- **Fix:** Use **eas-cli 16.3.3 or later** in `frontend/package.json` (e.g. `"eas-cli": "^16.3.3"`). Run `npm install` and re-run the build. Do **not** change `metro.config.js` to `require('@expo/metro-config')`; keep `require('expo/metro-config')` per Expo docs.
+- **Ref:** `docs/EAS_METRO_CONFIG_WARNING_FINDINGS.md`
+
+### 8.2 EAS CLI messages (informational / optional)
+
+- **"eas-cli@X is now available" / "Proceeding with outdated version"** – Informational. The project uses the version in package.json; build continues. To use latest, bump `eas-cli` in package.json and run `npm install`.
+- **"Use cli.version in eas.json"** – Optional. Add `"cli": { "version": ">=16.3.3" }` in `frontend/eas.json` to enforce eas-cli version for the project.
+- **"cli.appVersionSource is not set, but will be required in the future"** – Optional now. Add `"cli": { "appVersionSource": "remote" }` (recommended) or `"local"` in `frontend/eas.json` for versionCode/buildNumber management.
+- **"No environment variables for production on EAS"** – Informational. Only configure if you need build-time env vars (e.g. API URL); set them in Expo project → Environment variables or in build profile `env`.
+- **Ref:** `docs/EAS_CLI_AND_APP_VERSION_WARNINGS_FINDINGS.md`
+
+### 8.3 First Android production build: keystore
+
+- **Prompt:** "Generate a new Android Keystore? » (Y/n)"
+- **Action:** Press **Y** for the first production build. EAS creates the keystore and stores it on Expo's servers ("Using remote Android credentials"). You must use this same Expo account for all future Play Store updates for this app.
+
+### 8.4 Build in progress: what’s normal
+
+- **"Run expo doctor" with yellow warning** – Common; doctor reports suggestions. Build continues. You can fix doctor issues later by expanding that step’s logs on expo.dev.
+- **"Run gradlew" taking several minutes** – Normal. Android native build (Gradle) often takes 2–10+ minutes. Wait for it to finish.
+
+### 8.5 Build failure: react-native-screens Kotlin errors
+
+- **Symptom:** Build fails in "Run gradlew" with Kotlin errors in `react-native-screens`, e.g.:
+  - `Unresolved reference 'ChoreographerCompat'`
+  - `Class '...' is not abstract and does not implement abstract member...` (pointerEvents, onChildStartedNativeGesture, handleException)
+- **Cause:** **Version mismatch.** Expo 54 with React Native 0.81 requires **react-native-screens ~4.12.0**. Using ~4.4.0 causes these compilation errors on EAS.
+- **Fix:** In `frontend/package.json`, set `"react-native-screens": "~4.12.0"`. Run `npm install`, then re-run `npx eas build --platform android --profile production`. Alternatively run `npx expo install react-native-screens` to let Expo pick the compatible version.
+
+### 8.6 Build failure: expo-camera Android – Unresolved reference barcodescanner / BarCodeScannerResult
+
+- **Symptom:** Build fails in "Run gradlew" at task `:expo-camera:compileReleaseKotlin` (and/or `:expo-barcode-scanner:compileReleaseKotlin`) with errors such as:
+  - `Unresolved reference 'barcodescanner'`, `Unresolved reference 'BarCodeScannerResult'`
+  - `Unresolved reference 'cornerPoints'`, `boundingBox`, `value`, `raw`, `type`, etc.
+- **Cause:** expo-camera’s Android barcode code imports `expo.modules.interfaces.barcodescanner.BarCodeScannerResult`. That interface was **removed from expo-modules-core** in Expo PR #34966 (Feb 2025) and moved into expo-camera; **Expo SDK 54** ships before that change, so the interface is missing at build time. Adding expo-barcode-scanner does not fix it (that package also expects the same missing interface).
+- **Fix (recommended):** **Do not use expo-camera** for receipt capture. Use **expo-image-picker only**: “Take Photo” = `ImagePicker.launchCameraAsync()`, “Pick from Gallery” = `ImagePicker.launchImageLibraryAsync()`. Both return `{ uri, base64 }`; keep the same preview and “Process” → ReceiptReview → LLM flow. Remove **expo-camera** and **expo-barcode-scanner** from `frontend/package.json`. See `docs/EXPO_CAMERA_ANDROID_BUILD_RESEARCH.md` for full research and references.
+
+### 8.7 Build failure: react-native-screens C++ – ShadowNode::Shared deprecated (RN 0.81)
+
+- **Symptom:** EAS Android build fails at `:app:buildCMakeRelWithDebInfo[arm64-v8a]` with:
+  - `RNSScreenShadowNode.h:31:38: error: 'Shared' is deprecated: Use std::shared_ptr<const ShadowNode> instead [-Werror,-Wdeprecated-declarations]`
+- **Cause:** React Native 0.81 deprecated `ShadowNode::Shared` in favor of `std::shared_ptr<const ShadowNode>`. react-native-screens 4.12.0 (used with Expo 54) still uses the old type; the build uses `-Werror`, so the deprecation becomes an error.
+- **Fix:** A patch is applied via **patch-package**. The repo includes `frontend/patches/react-native-screens+4.12.0.patch` that replaces `ShadowNode::Shared` with `std::shared_ptr<const ShadowNode>` in the C++ files. Ensure `frontend/package.json` has `"postinstall": "patch-package"` and devDependency `"patch-package": "^8.0.0"`. After `npm install` (including on EAS), the patch is applied automatically. Do not remove the `patches` folder or the postinstall script.
+
+### 8.8 Checklist before running EAS production build
+
+- [ ] `frontend/package.json`: `eas-cli` ≥ 16.3.3; `react-native-screens` ~4.12.0 (for Expo 54); `patch-package` in devDependencies; `postinstall`: `patch-package`. Do **not** add expo-camera or expo-barcode-scanner (use expo-image-picker only for receipt photo/gallery).
+- [ ] `frontend/metro.config.js`: uses `require('expo/metro-config')` and `getDefaultConfig(__dirname)`.
+- [ ] First Android production build: answer **Y** to "Generate a new Android Keystore?".
+- [ ] Optional: set `cli.version` and `cli.appVersionSource` in `frontend/eas.json` to avoid warnings.
+
+---
+
 ## Notes
 
 - **Free tier limits:** Railway/Heroku have free tiers with limitations
