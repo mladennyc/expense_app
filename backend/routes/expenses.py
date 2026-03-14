@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from sqlalchemy import or_
+from typing import List, Optional
 from datetime import date, timedelta
 
 from database import get_db, User, Expense as ExpenseModel
@@ -89,6 +90,57 @@ async def get_recent_expenses(
         ExpenseModel.date >= two_months_ago
     ).order_by(ExpenseModel.date.desc()).all()
     
+    return [
+        Expense(
+            id=e.id,
+            amount=e.amount,
+            date=e.date,
+            category=e.category,
+            description=e.description
+        )
+        for e in expenses
+    ]
+
+
+@router.get("/expenses", response_model=List[Expense])
+async def get_expenses_by_category(
+    month: Optional[str] = None,
+    category: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get expenses for a given month and category (query params: month=YYYY-MM, category=Name)."""
+    if not month or not category:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="month and category query params are required"
+        )
+    current_date = date.today()
+    try:
+        year, month_num = map(int, month.split('-'))
+        month_start = date(year, month_num, 1)
+        if month_num == 12:
+            month_end = date(year + 1, 1, 1) - timedelta(days=1)
+        else:
+            month_end = date(year, month_num + 1, 1) - timedelta(days=1)
+        if month == current_date.strftime("%Y-%m"):
+            month_end = current_date
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM")
+    if category == "Uncategorized":
+        expenses = db.query(ExpenseModel).filter(
+            ExpenseModel.user_id == current_user.id,
+            ExpenseModel.date >= month_start,
+            ExpenseModel.date <= month_end,
+            or_(ExpenseModel.category.is_(None), ExpenseModel.category == "")
+        ).order_by(ExpenseModel.date.desc()).all()
+    else:
+        expenses = db.query(ExpenseModel).filter(
+            ExpenseModel.user_id == current_user.id,
+            ExpenseModel.date >= month_start,
+            ExpenseModel.date <= month_end,
+            ExpenseModel.category == category
+        ).order_by(ExpenseModel.date.desc()).all()
     return [
         Expense(
             id=e.id,

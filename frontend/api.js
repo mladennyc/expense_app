@@ -177,6 +177,13 @@ export async function getRecentExpenses() {
   return normalizeBooleans(data);
 }
 
+export async function getExpensesByCategory(month, category) {
+  const params = new URLSearchParams({ month, category });
+  const response = await authenticatedFetch(`${BASE_URL}/expenses?${params.toString()}`);
+  const data = await response.json();
+  return normalizeBooleans(data);
+}
+
 export async function getMonthlyStats() {
   const response = await authenticatedFetch(`${BASE_URL}/stats/by-month`);
   const data = await response.json();

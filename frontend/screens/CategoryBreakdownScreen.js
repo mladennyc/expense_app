@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { getCurrentMonthByCategory, getMonthByCategory } from '../api';
 import { useCurrency } from '../src/CurrencyProvider';
 import { useLanguage } from '../src/LanguageProvider';
@@ -34,7 +35,7 @@ const CATEGORY_NAME_TO_KEY = {
   'Uncategorized': 'category.other',
 };
 
-export default function CategoryBreakdownScreen({ route }) {
+export default function CategoryBreakdownScreen({ route, navigation }) {
   const { formatCurrency } = useCurrency();
   const { t } = useLanguage();
   const [data, setData] = useState(null);
@@ -43,15 +44,11 @@ export default function CategoryBreakdownScreen({ route }) {
   
   const month = route?.params?.month; // Get month from route params
 
-  useEffect(() => {
-    loadData();
-  }, [month]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const result = month 
+      const result = month
         ? await getMonthByCategory(month)
         : await getCurrentMonthByCategory();
       setData(result);
@@ -60,7 +57,13 @@ export default function CategoryBreakdownScreen({ route }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [month]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const translateCategory = (categoryName) => {
     if (!categoryName) return '';
@@ -139,7 +142,11 @@ export default function CategoryBreakdownScreen({ route }) {
 
             {/* Table Rows */}
             {data.categories.map((item, index) => (
-              <View key={index} style={styles.tableRow}>
+              <TouchableOpacity
+                key={index}
+                style={styles.tableRow}
+                onPress={() => navigation.navigate('CategoryExpenseList', { month: data.month, category: item.category })}
+              >
                 <View style={[styles.tableCol1, styles.categoryCell]}>
                   <View
                     style={[
@@ -157,7 +164,7 @@ export default function CategoryBreakdownScreen({ route }) {
                 <Text style={[styles.tableCol3, styles.percentageText]}>
                   {item.percentage}%
                 </Text>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         </View>

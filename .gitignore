@@ -57,3 +57,6 @@ logs/
 # Local deployment info (contains sensitive URLs and setup details)
 DEPLOYMENT_INFO.md
 
+# Docs (internal planning / feature specs)
+docs/
+

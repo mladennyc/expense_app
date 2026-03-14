@@ -22,6 +22,7 @@ import EditExpenseScreen from './screens/EditExpenseScreen';
 import AddIncomeScreen from './screens/AddIncomeScreen';
 import EditIncomeScreen from './screens/EditIncomeScreen';
 import CategoryBreakdownScreen from './screens/CategoryBreakdownScreen';
+import CategoryExpenseListScreen from './screens/CategoryExpenseListScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import ManageSubscriptionScreen from './screens/ManageSubscriptionScreen';
 import ReceiptCameraScreen from './screens/ReceiptCameraScreen';
@@ -176,6 +177,14 @@ function AppNavigator() {
           component={CategoryBreakdownScreen}
           options={{ 
             title: t('screen.categoryBreakdown'),
+            headerShown: true,
+          }}
+        />
+        <Stack.Screen 
+          name="CategoryExpenseList" 
+          component={CategoryExpenseListScreen}
+          options={{ 
+            title: '',
             headerShown: true,
           }}
         />
