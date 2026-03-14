@@ -311,9 +311,16 @@ This section documents issues we hit during EAS Android production builds and ho
 - **Cause:** React Native 0.81 deprecated `ShadowNode::Shared` in favor of `std::shared_ptr<const ShadowNode>`. react-native-screens 4.12.0 (used with Expo 54) still uses the old type; the build uses `-Werror`, so the deprecation becomes an error.
 - **Fix:** A patch is applied via **patch-package**. The repo includes `frontend/patches/react-native-screens+4.12.0.patch` that replaces `ShadowNode::Shared` with `std::shared_ptr<const ShadowNode>` in the C++ files. Ensure `frontend/package.json` has `"postinstall": "patch-package"` and devDependency `"patch-package": "^8.0.0"`. After `npm install` (including on EAS), the patch is applied automatically. Do not remove the `patches` folder or the postinstall script.
 
-### 8.8 Checklist before running EAS production build
+### 8.8 Build failure: react-native-safe-area-context C++ – no member named 'unit' in StyleLength (RN 0.81)
 
-- [ ] `frontend/package.json`: `eas-cli` ≥ 16.3.3; `react-native-screens` ~4.12.0 (for Expo 54); `patch-package` in devDependencies; `postinstall`: `patch-package`. Do **not** add expo-camera or expo-barcode-scanner (use expo-image-picker only for receipt photo/gallery).
+- **Symptom:** EAS Android build fails at `:app:buildCMakeRelWithDebInfo[arm64-v8a]` with:
+  - `RNCSafeAreaViewShadowNode.cpp:19:12: error: no member named 'unit' in 'facebook::yoga::StyleLength'`
+- **Cause:** In React Native 0.81, Yoga’s `StyleLength` no longer has `unit()`; the API uses `isDefined()` instead.
+- **Fix:** A patch is applied via **patch-package**. The repo includes `frontend/patches/react-native-safe-area-context+4.14.1.patch` that replaces `edge.unit() != Unit::Undefined` with `edge.isDefined()` (and same for `axis`) in `RNCSafeAreaViewShadowNode.cpp`. The existing `postinstall`: `patch-package` applies this automatically after `npm install`.
+
+### 8.9 Checklist before running EAS production build
+
+- [ ] `frontend/package.json`: `eas-cli` ≥ 16.3.3; `react-native-screens` ~4.12.0; `react-native-safe-area-context` ~4.14.0 (for Expo 54); `patch-package` in devDependencies; `postinstall`: `patch-package`. Do **not** add expo-camera or expo-barcode-scanner (use expo-image-picker only for receipt photo/gallery).
 - [ ] `frontend/metro.config.js`: uses `require('expo/metro-config')` and `getDefaultConfig(__dirname)`.
 - [ ] First Android production build: answer **Y** to "Generate a new Android Keystore?".
 - [ ] Optional: set `cli.version` and `cli.appVersionSource` in `frontend/eas.json` to avoid warnings.
